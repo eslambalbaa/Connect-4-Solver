@@ -3,7 +3,6 @@
 #include "definitions.hpp"
 #include <array>
 #include <optional>
-#include <sys/stat.h>
 
 namespace internal_calculation
 {
