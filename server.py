@@ -3,6 +3,7 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
+from waitress import serve
 from flask import Flask, jsonify, request, send_from_directory
 
 # ensure 3D model MIME types resolve consistently on both Linux and Windows
@@ -80,4 +81,5 @@ def get_move():
 
 if __name__ == "__main__":
     ensure_solver_built()
-    app.run(host="127.0.0.1", port=8000, debug=True)
+    print("Server running at http://127.0.0.1:8000")
+    serve(app, host="127.0.0.1", port=8000)

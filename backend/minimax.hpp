@@ -44,18 +44,18 @@ class minimax
         }
 
         int value = INF;
-        state move;
+        state best_move;
 
         for (auto &child : curr.get_neighbours())
         {
-            auto [value2, a2] = max_value(child, level + 1, k, max_player);
+            auto [value2, _] = max_value(child, level + 1, k, max_player);
             if (value2 < value)
             {
                 value = value2;
-                move = child;
+                best_move = child;
             }
         }
 
-        return {value, move};
+        return {value, best_move};
     }
 };

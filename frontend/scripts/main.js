@@ -10,7 +10,7 @@ import { ConfettiEngine } from './confetti.js?v=42';
 import { CharacterManager } from './character-manager.js?v=42';
 import { Connect4Game } from './game.js?v=42';
 import { BoardRenderer } from './board-renderer.js?v=43';
-import { MenuManager } from './menu.js?v=44';
+import { MenuManager } from './menu.js?v=45';
 
 document.addEventListener('DOMContentLoaded', () => {
   // DOM References
@@ -88,6 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let isAiThinking = false;
   let currentMode = GAME_MODES.HUMAN_VS_HUMAN;
   let currentAlgorithm = AI_CONFIG.DEFAULT_ALGORITHM;
+  let currentMaxLevels = AI_CONFIG.MAX_LEVELS;
   let cpuPlayer = AI_CONFIG.CPU_PLAYER;
   let aiAbortController = null;
   let matchGeneration = 0;
@@ -220,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({
           algorithm: currentAlgorithm,
           color: cpuPlayer,
-          max_levels: AI_CONFIG.MAX_LEVELS,
+          max_levels: currentMaxLevels,
           board: game.grid
         }),
         signal: aiAbortController.signal
@@ -318,6 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
     mainViewEl: document.getElementById('menuMainView'),
     algoViewEl: document.getElementById('menuAlgoView'),
     characterViewEl: document.getElementById('menuCharacterView'),
+    depthViewEl: document.getElementById('menuDepthView'),
     howToPlayViewEl: document.getElementById('menuHowToPlayView'),
     btnHumanVsHuman: document.getElementById('btnHumanVsHuman'),
     btnHumanVsAi: document.getElementById('btnHumanVsAi'),
@@ -326,6 +328,11 @@ document.addEventListener('DOMContentLoaded', () => {
     btnChooseShadow: document.getElementById('btnChooseShadow'),
     btnChooseTails: document.getElementById('btnChooseTails'),
     btnBackToAlgo: document.getElementById('btnBackToAlgo'),
+    inputMaxLevels: document.getElementById('inputMaxLevels'),
+    btnDepthMinus: document.getElementById('btnDepthMinus'),
+    btnDepthPlus: document.getElementById('btnDepthPlus'),
+    btnStartAiMatch: document.getElementById('btnStartAiMatch'),
+    btnBackToCharacter: document.getElementById('btnBackToCharacter'),
     btnHowToPlay: document.getElementById('btnHowToPlay'),
     btnCloseHowToPlay: document.getElementById('btnCloseHowToPlay'),
     btnBackToModes: document.getElementById('btnBackToModes'),
@@ -338,6 +345,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentAlgorithm = options.algorithm;
       }
       cpuPlayer = typeof options.cpuPlayer === 'number' ? options.cpuPlayer : AI_CONFIG.CPU_PLAYER;
+      currentMaxLevels = typeof options.maxLevels === 'number' ? options.maxLevels : AI_CONFIG.MAX_LEVELS;
       resetMatch();
     }
   });

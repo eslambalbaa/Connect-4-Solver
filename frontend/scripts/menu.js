@@ -13,6 +13,7 @@ export class MenuManager {
    * @param {HTMLElement} options.mainViewEl
    * @param {HTMLElement} options.algoViewEl
    * @param {HTMLElement} [options.characterViewEl]
+   * @param {HTMLElement} [options.depthViewEl]
    * @param {HTMLElement} [options.howToPlayViewEl]
    * @param {HTMLElement} options.btnHumanVsHuman
    * @param {HTMLElement} options.btnHumanVsAi
@@ -21,6 +22,11 @@ export class MenuManager {
    * @param {HTMLElement} [options.btnChooseShadow]
    * @param {HTMLElement} [options.btnChooseTails]
    * @param {HTMLElement} [options.btnBackToAlgo]
+   * @param {HTMLInputElement} [options.inputMaxLevels]
+   * @param {HTMLElement} [options.btnDepthMinus]
+   * @param {HTMLElement} [options.btnDepthPlus]
+   * @param {HTMLElement} [options.btnStartAiMatch]
+   * @param {HTMLElement} [options.btnBackToCharacter]
    * @param {HTMLElement} [options.btnHowToPlay]
    * @param {HTMLElement} [options.btnCloseHowToPlay]
    * @param {HTMLElement} options.btnBackToModes
@@ -34,6 +40,7 @@ export class MenuManager {
     mainViewEl,
     algoViewEl,
     characterViewEl = null,
+    depthViewEl = null,
     howToPlayViewEl = null,
     btnHumanVsHuman,
     btnHumanVsAi,
@@ -42,6 +49,11 @@ export class MenuManager {
     btnChooseShadow = null,
     btnChooseTails = null,
     btnBackToAlgo = null,
+    inputMaxLevels = null,
+    btnDepthMinus = null,
+    btnDepthPlus = null,
+    btnStartAiMatch = null,
+    btnBackToCharacter = null,
     btnHowToPlay = null,
     btnCloseHowToPlay = null,
     btnBackToModes,
@@ -54,6 +66,7 @@ export class MenuManager {
     this.mainViewEl = mainViewEl;
     this.algoViewEl = algoViewEl;
     this.characterViewEl = characterViewEl;
+    this.depthViewEl = depthViewEl;
     this.howToPlayViewEl = howToPlayViewEl;
     this.btnHumanVsHuman = btnHumanVsHuman;
     this.btnHumanVsAi = btnHumanVsAi;
@@ -62,6 +75,11 @@ export class MenuManager {
     this.btnChooseShadow = btnChooseShadow;
     this.btnChooseTails = btnChooseTails;
     this.btnBackToAlgo = btnBackToAlgo;
+    this.inputMaxLevels = inputMaxLevels;
+    this.btnDepthMinus = btnDepthMinus;
+    this.btnDepthPlus = btnDepthPlus;
+    this.btnStartAiMatch = btnStartAiMatch;
+    this.btnBackToCharacter = btnBackToCharacter;
     this.btnHowToPlay = btnHowToPlay;
     this.btnCloseHowToPlay = btnCloseHowToPlay;
     this.btnBackToModes = btnBackToModes;
@@ -74,8 +92,37 @@ export class MenuManager {
     this.isTransitioning = false;
     this.currentView = 'main';
     this.selectedAlgorithm = AI_CONFIG.DEFAULT_ALGORITHM;
+    this.selectedHumanPlayer = PLAYERS[1].id;
+    this.selectedCpuPlayer = PLAYERS[2].id;
+    this.selectedMaxLevels = AI_CONFIG.MAX_LEVELS;
 
     this.initEvents();
+  }
+
+  normalizeMaxLevels(rawValue) {
+    const parsed = Number.parseInt(rawValue, 10);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      return 1;
+    }
+    return Math.min(42, parsed);
+  }
+
+  commitDepthInput() {
+    const valid = this.normalizeMaxLevels(this.inputMaxLevels?.value);
+    this.selectedMaxLevels = valid;
+    if (this.inputMaxLevels) {
+      this.inputMaxLevels.value = String(valid);
+    }
+    return valid;
+  }
+
+  adjustDepth(delta) {
+    const base = this.normalizeMaxLevels(this.inputMaxLevels?.value ?? this.selectedMaxLevels);
+    const next = Math.max(1, Math.min(42, base + delta));
+    this.selectedMaxLevels = next;
+    if (this.inputMaxLevels) {
+      this.inputMaxLevels.value = String(next);
+    }
   }
 
   /**
@@ -105,20 +152,49 @@ export class MenuManager {
 
     this.btnChooseShadow?.addEventListener('click', () => {
       if (this.isTransitioning) return;
-      this.startEntranceSequence(GAME_MODES.HUMAN_VS_AI, {
-        algorithm: this.selectedAlgorithm,
-        humanPlayer: PLAYERS[1].id,
-        cpuPlayer: PLAYERS[2].id
-      });
+      this.showDepthView(PLAYERS[1].id, PLAYERS[2].id);
     });
 
     this.btnChooseTails?.addEventListener('click', () => {
       if (this.isTransitioning) return;
+      this.showDepthView(PLAYERS[2].id, PLAYERS[1].id);
+    });
+
+    this.btnDepthMinus?.addEventListener('click', () => {
+      if (this.isTransitioning) return;
+      this.adjustDepth(-1);
+    });
+
+    this.btnDepthPlus?.addEventListener('click', () => {
+      if (this.isTransitioning) return;
+      this.adjustDepth(1);
+    });
+
+    this.inputMaxLevels?.addEventListener('blur', () => {
+      this.commitDepthInput();
+    });
+
+    this.inputMaxLevels?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.btnStartAiMatch?.click();
+      }
+    });
+
+    this.btnStartAiMatch?.addEventListener('click', () => {
+      if (this.isTransitioning) return;
+      const maxLevels = this.commitDepthInput();
       this.startEntranceSequence(GAME_MODES.HUMAN_VS_AI, {
         algorithm: this.selectedAlgorithm,
-        humanPlayer: PLAYERS[2].id,
-        cpuPlayer: PLAYERS[1].id
+        humanPlayer: this.selectedHumanPlayer,
+        cpuPlayer: this.selectedCpuPlayer,
+        maxLevels
       });
+    });
+
+    this.btnBackToCharacter?.addEventListener('click', () => {
+      if (this.isTransitioning) return;
+      this.showCharacterView(this.selectedAlgorithm);
     });
 
     this.btnBackToAlgo?.addEventListener('click', () => {
@@ -144,8 +220,11 @@ export class MenuManager {
     window.addEventListener('keydown', (e) => {
       if (!this.isInMenu || this.isTransitioning) return;
 
-      if (e.key === 'Escape' || e.key === 'Backspace') {
-        if (this.currentView === 'character') {
+      if (e.key === 'Escape' || (e.key === 'Backspace' && document.activeElement !== this.inputMaxLevels)) {
+        if (this.currentView === 'depth') {
+          e.preventDefault();
+          this.showCharacterView(this.selectedAlgorithm);
+        } else if (this.currentView === 'character') {
           e.preventDefault();
           this.showAlgoView();
         } else if (this.currentView === 'algo') {
@@ -182,6 +261,7 @@ export class MenuManager {
     this.currentView = 'main';
     this.algoViewEl?.classList.add('hidden');
     this.characterViewEl?.classList.add('hidden');
+    this.depthViewEl?.classList.add('hidden');
     this.howToPlayViewEl?.classList.add('hidden');
     this.mainViewEl?.classList.remove('hidden');
   }
@@ -193,6 +273,7 @@ export class MenuManager {
     this.currentView = 'algo';
     this.mainViewEl?.classList.add('hidden');
     this.characterViewEl?.classList.add('hidden');
+    this.depthViewEl?.classList.add('hidden');
     this.howToPlayViewEl?.classList.add('hidden');
     this.algoViewEl?.classList.remove('hidden');
     this.btnAlgoMinimax?.focus();
@@ -203,9 +284,26 @@ export class MenuManager {
     this.selectedAlgorithm = algorithm;
     this.mainViewEl?.classList.add('hidden');
     this.algoViewEl?.classList.add('hidden');
+    this.depthViewEl?.classList.add('hidden');
     this.howToPlayViewEl?.classList.add('hidden');
     this.characterViewEl?.classList.remove('hidden');
     this.btnChooseShadow?.focus();
+  }
+
+  showDepthView(humanPlayer, cpuPlayer) {
+    this.currentView = 'depth';
+    this.selectedHumanPlayer = humanPlayer;
+    this.selectedCpuPlayer = cpuPlayer;
+    this.mainViewEl?.classList.add('hidden');
+    this.algoViewEl?.classList.add('hidden');
+    this.characterViewEl?.classList.add('hidden');
+    this.howToPlayViewEl?.classList.add('hidden');
+    this.depthViewEl?.classList.remove('hidden');
+    if (this.inputMaxLevels) {
+      this.inputMaxLevels.value = String(this.selectedMaxLevels);
+      this.inputMaxLevels.focus();
+      this.inputMaxLevels.select();
+    }
   }
 
   /**
@@ -216,6 +314,7 @@ export class MenuManager {
     this.mainViewEl?.classList.add('hidden');
     this.algoViewEl?.classList.add('hidden');
     this.characterViewEl?.classList.add('hidden');
+    this.depthViewEl?.classList.add('hidden');
     this.howToPlayViewEl?.classList.remove('hidden');
     this.btnCloseHowToPlay?.focus();
   }

@@ -1248,6 +1248,84 @@ body.in-game .center {
   background: radial-gradient(circle at 34% 28%, #fff6ad, var(--gold) 50%, #c47d00);
 }
 
+.sonic-depth-panel {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  transform: skewX(-14deg);
+  border-radius: 6px;
+  background: linear-gradient(180deg, #ffffff 0%, #e4efff 100%);
+  border: 3px solid var(--navy);
+  box-shadow: 0 6px 0 #040d24, 0 12px 26px rgba(0, 0, 0, 0.45);
+}
+
+.sonic-depth-step {
+  flex: 0 0 auto;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 2.5px solid var(--navy);
+  background: linear-gradient(135deg, #0044cc 0%, #0066ff 100%);
+  color: #ffffff;
+  font-family: var(--font-title);
+  font-size: 28px;
+  line-height: 1;
+  box-shadow: 0 4px 0 #040d24;
+  cursor: pointer;
+  outline: none;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, filter 0.14s ease;
+}
+
+.sonic-depth-step span {
+  transform: skewX(14deg);
+}
+
+.sonic-depth-step:hover,
+.sonic-depth-step:focus-visible {
+  filter: brightness(1.12);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 #040d24;
+}
+
+.sonic-depth-step:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #040d24;
+}
+
+.sonic-depth-input-wrap {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: skewX(14deg);
+}
+
+.sonic-depth-input {
+  width: 100%;
+  max-width: 150px;
+  text-align: center;
+  font-family: var(--font-title);
+  font-size: clamp(28px, 4vw, 36px);
+  letter-spacing: 0.04em;
+  color: var(--navy);
+  background: transparent;
+  border: 0;
+  outline: none;
+  -moz-appearance: textfield;
+}
+
+.sonic-depth-input::-webkit-outer-spin-button,
+.sonic-depth-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* How to Play Guide Card */
 .menu-guide-card {
   width: 100%;
