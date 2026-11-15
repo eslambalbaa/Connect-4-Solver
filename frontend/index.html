@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Connect 4: Shadow vs Tails</title>
+
+  <!-- Preconnect and preload assets -->
+  <link rel="preconnect" href="https://ajax.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <link rel="modulepreload" href="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js">
+  <link rel="modulepreload" href="scripts/main.js?v=44">
+  <link rel="modulepreload" href="scripts/constants.js?v=42">
+  <link rel="modulepreload" href="scripts/perf.js?v=42">
+  <link rel="modulepreload" href="scripts/confetti.js?v=42">
+  <link rel="modulepreload" href="scripts/character-manager.js?v=42">
+  <link rel="modulepreload" href="scripts/game.js?v=42">
+  <link rel="modulepreload" href="scripts/board-renderer.js?v=43">
+  <link rel="modulepreload" href="scripts/menu.js?v=44">
+
+  <link rel="preload" href="assets/models/shadow.glb" as="fetch" crossorigin>
+  <link rel="preload" href="assets/models/tails.glb" as="fetch" crossorigin>
+
+  <!-- Google Fonts: Lilita One and Exo 2 -->
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,700;0,800;0,900;1,700;1,800;1,900&family=Lilita+One&display=swap" rel="stylesheet">
+
+  <!-- 3D Model Viewer Web Component -->
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
+
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="style.css?v=44">
+</head>
+<body class="in-menu">
+  <!-- Dynamic animated environment -->
+  <div id="bg" aria-hidden="true"></div>
+  <div id="blur" aria-hidden="true"></div>
+  <div id="speed" aria-hidden="true"></div>
+
+  <!-- Modern Sonic Dynamic Speed Corner Accents -->
+  <div class="sonic-corner corner-top-left" aria-hidden="true">
+    <div class="corner-checker-fade"></div>
+    <div class="speed-stripe stripe-yellow-1"></div>
+    <div class="speed-stripe stripe-blue-1"></div>
+    <div class="speed-stripe stripe-yellow-2"></div>
+    <div class="speed-stripe stripe-blue-2"></div>
+  </div>
+
+  <div class="sonic-corner corner-bottom-right" aria-hidden="true">
+    <div class="speed-stripe stripe-yellow-1"></div>
+    <div class="speed-stripe stripe-blue-1"></div>
+    <div class="speed-stripe stripe-yellow-2"></div>
+  </div>
+
+  <!-- Modern Sonic Title & Menu Screen -->
+  <div id="intro-screen" class="intro-screen" role="dialog" aria-modal="true" aria-labelledby="introTitle">
+    <div class="menu-stage">
+
+      <!-- Sonic 3D Ring Emblem -->
+      <div class="sonic-ring-emblem" aria-hidden="true">
+        <div class="ring-glow-halo"></div>
+        <img src="assets/images/sonic_ring.webp" alt="" class="sonic-ring-img" />
+        <svg class="ring-glint-star" viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+          <path d="M12 0L14.8 9.2L24 12L14.8 14.8L12 24L9.2 14.8L0 12L9.2 9.2Z"/>
+        </svg>
+      </div>
+
+      <!-- Sonic Extruded 3D Title & Clean Matchup Header -->
+      <header class="sonic-title-block">
+        <h1 id="introTitle" class="sonic-main-title">CONNECT 4</h1>
+
+        <div class="sonic-matchup-subtitle" aria-label="Shadow versus Tails">
+          <span class="matchup-name matchup-shadow">SHADOW</span>
+          <span class="matchup-vs">VS</span>
+          <span class="matchup-name matchup-tails">TAILS</span>
+        </div>
+      </header>
+
+      <!-- View 1: Main Mode Selection -->
+      <section id="menuMainView" class="menu-action-stack" aria-label="Mode Selection">
+        <!-- Button 1: 2 Players -->
+        <button type="button" id="btnHumanVsHuman" class="sonic-btn sonic-btn-primary" aria-label="Play 2 Players">
+          <div class="sonic-btn-decor">
+            <span class="sonic-btn-chevron-box">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                <path d="M7 6l6 6-6 6M13 6l6 6-6 6" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </span>
+          </div>
+          <div class="sonic-btn-content">
+            <span class="sonic-btn-label">2 PLAYERS</span>
+          </div>
+          <div class="sonic-btn-checker" aria-hidden="true"></div>
+        </button>
+
+        <!-- Button 2: VS Computer (Opens AI Menu View) -->
+        <button type="button" id="btnHumanVsAi" class="sonic-btn sonic-btn-secondary" aria-label="Play Against Computer">
+          <div class="sonic-btn-decor">
+            <span class="sonic-btn-circle-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="6" width="20" height="12" rx="3"/>
+                <path d="M6 12h4M8 10v4M15 11h.01M18 13h.01"/>
+              </svg>
+            </span>
+          </div>
+          <div class="sonic-btn-content">
+            <span class="sonic-btn-label">VS COMPUTER</span>
+          </div>
+          <div class="sonic-btn-checker" aria-hidden="true"></div>
+        </button>
+
+        <!-- Button 3: How to Play -->
+        <button type="button" id="btnHowToPlay" class="sonic-btn sonic-btn-tertiary" aria-label="How to Play and Controls">
+          <div class="sonic-btn-decor">
+            <span class="sonic-btn-circle-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="16" x2="12" y2="12"/>
+                <line x1="12" y1="8" x2="12.01" y2="8"/>
+              </svg>
+            </span>
+          </div>
+          <div class="sonic-btn-content">
+            <span class="sonic-btn-label">HOW TO PLAY</span>
+          </div>
+          <div class="sonic-btn-checker" aria-hidden="true"></div>
+        </button>
+      </section>
+
+      <!-- View 2: AI Algorithm / Difficulty Selection (Kept for User Implementation) -->
+      <section id="menuAlgoView" class="menu-action-stack hidden" aria-label="AI Algorithm Selection">
+        <div id="algoOptions" class="menu-action-stack" aria-label="Algorithm Options Container">
+          <button type="button" id="btnAlgoMinimax" class="sonic-btn sonic-btn-primary" aria-label="Minimax Algorithm">
+            <div class="sonic-btn-decor">
+              <span class="sonic-btn-chevron-box">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                  <path d="M7 6l6 6-6 6M13 6l6 6-6 6" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                </svg>
+              </span>
+            </div>
+            <div class="sonic-btn-content">
+              <span class="sonic-btn-label">MINIMAX</span>
+            </div>
+            <div class="sonic-btn-checker" aria-hidden="true"></div>
+          </button>
+
+          <button type="button" id="btnAlgoAlphaBeta" class="sonic-btn sonic-btn-secondary" aria-label="Minimax with Alpha-Beta Pruning">
+            <div class="sonic-btn-decor">
+              <span class="sonic-btn-circle-icon">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                </svg>
+              </span>
+            </div>
+            <div class="sonic-btn-content">
+              <span class="sonic-btn-label">MINIMAX + ALPHA-BETA</span>
+            </div>
+            <div class="sonic-btn-checker" aria-hidden="true"></div>
+          </button>
+        </div>
+
+        <button type="button" id="btnBackToModes" class="sonic-btn sonic-btn-tertiary" aria-label="Back to Mode Selection">
+          <div class="sonic-btn-decor">
+            <span class="sonic-btn-circle-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+            </span>
+          </div>
+          <div class="sonic-btn-content">
+            <span class="sonic-btn-label">BACK TO MODES</span>
+          </div>
+          <div class="sonic-btn-checker" aria-hidden="true"></div>
+        </button>
+      </section>
+
+      <section id="menuCharacterView" class="menu-action-stack hidden" aria-label="Character Selection">
+        <h2 class="menu-subview-title">CHOOSE YOUR FIGHTER</h2>
+
+        <button type="button" id="btnChooseShadow" class="sonic-btn sonic-btn-shadow" aria-label="Play as Shadow">
+          <div class="sonic-btn-decor">
+            <span class="sonic-btn-disc disc-shadow" aria-hidden="true"></span>
+          </div>
+          <div class="sonic-btn-content">
+            <span class="sonic-btn-label">SHADOW</span>
+          </div>
+          <div class="sonic-btn-checker" aria-hidden="true"></div>
+        </button>
+
+        <button type="button" id="btnChooseTails" class="sonic-btn sonic-btn-primary" aria-label="Play as Tails">
+          <div class="sonic-btn-decor">
+            <span class="sonic-btn-disc disc-tails" aria-hidden="true"></span>
+          </div>
+          <div class="sonic-btn-content">
+            <span class="sonic-btn-label">TAILS</span>
+          </div>
+          <div class="sonic-btn-checker" aria-hidden="true"></div>
+        </button>
+
+        <button type="button" id="btnBackToAlgo" class="sonic-btn sonic-btn-tertiary" aria-label="Back to Algorithm Selection">
+          <div class="sonic-btn-decor">
+            <span class="sonic-btn-circle-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+            </span>
+          </div>
+          <div class="sonic-btn-content">
+            <span class="sonic-btn-label">BACK</span>
+          </div>
+          <div class="sonic-btn-checker" aria-hidden="true"></div>
+        </button>
+      </section>
+
+      <!-- View 3: How to Play Card -->
+      <section id="menuHowToPlayView" class="menu-guide-card hidden" aria-label="Controls and Guide">
+        <h2 class="guide-title">HOW TO PLAY</h2>
+        <div class="guide-rows">
+          <div class="guide-row">
+            <div class="guide-keys"><kbd>A</kbd><kbd>D</kbd> or <kbd>←</kbd><kbd>→</kbd></div>
+            <div class="guide-desc">Aim Drop Column</div>
+          </div>
+          <div class="guide-row">
+            <div class="guide-keys"><kbd>SPACE</kbd> or <kbd>CLICK</kbd></div>
+            <div class="guide-desc">Drop Ring Disc</div>
+          </div>
+          <div class="guide-row">
+            <div class="guide-keys"><kbd>1</kbd> to <kbd>7</kbd></div>
+            <div class="guide-desc">Quick Drop Column</div>
+          </div>
+          <div class="guide-row">
+            <div class="guide-keys"><kbd>R</kbd></div>
+            <div class="guide-desc">Instant Rematch</div>
+          </div>
+        </div>
+        <button type="button" id="btnCloseHowToPlay" class="sonic-btn sonic-btn-primary guide-close-btn" aria-label="Close Guide">
+          <div class="sonic-btn-content">
+            <span class="sonic-btn-label">GOT IT</span>
+          </div>
+          <div class="sonic-btn-checker" aria-hidden="true"></div>
+        </button>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- Primary Application Arena -->
+  <main id="app">
+    <!-- Player 1: Shadow (Left Panel) -->
+    <section class="panel left active" id="panel1" aria-label="Shadow">
+      <div class="sprite-container">
+        <div class="sprite">
+          <div class="loader" aria-hidden="true"><i></i></div>
+          <model-viewer
+            id="model1"
+            src="assets/models/shadow.glb"
+            alt="Shadow 3D Character Model"
+            loading="eager"
+            autoplay
+            animation-name="shadow.qc_skeleton|boost"
+            animation-crossfade-duration="350"
+            scale="0.8 0.8 0.8"
+            camera-orbit="-55deg 82deg auto"
+            camera-target="0m 0.2m 0m"
+            interaction-prompt="none"
+            disable-zoom
+            disable-pan
+            disable-tap
+            shadow-intensity="0"
+            environment-image="neutral">
+          </model-viewer>
+        </div>
+      </div>
+      <div class="name-card plate">
+        <div class="card-row">
+          <span class="player-tag">P1</span>
+          <div class="name">Shadow</div>
+          <span class="score-pill" id="score1" title="Shadow Wins">0</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Center Connect 4 Board -->
+    <section class="center">
+      <div id="status" class="plate p1" role="status" aria-live="polite">Shadow: your move</div>
+      <div id="board" aria-label="Connect 4 Grid">
+        <div id="guideline" class="active-guideline p1 visible">
+          <div id="targetRing" class="target-ring"></div>
+        </div>
+        <div id="pieces"><div id="active" class="piece p1"></div></div>
+        <div id="face"></div>
+        <div id="frame"></div>
+        <div id="rings"></div>
+      </div>
+
+      <!-- Bottom Control Bar -->
+      <div id="hint">
+        <button id="btnRestart" class="sonic-action-btn sonic-action-retry" type="button" aria-label="Retry Match (R)">
+          <svg class="action-btn-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="1 4 1 10 7 10"></polyline>
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+          </svg>
+          <span>RETRY</span>
+        </button>
+        <button id="btnMenu" class="sonic-action-btn sonic-action-menu" type="button" aria-label="Main Menu (M)">
+          <svg class="action-btn-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+          </svg>
+          <span>MAIN MENU</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Player 2: Tails (Right Panel) -->
+    <section class="panel right" id="panel2" aria-label="Tails">
+      <div class="sprite-container">
+        <div class="sprite">
+          <div class="loader" aria-hidden="true"><i></i></div>
+          <model-viewer
+            id="model2"
+            src="assets/models/tails.glb"
+            alt="Tails 3D Character Model"
+            loading="eager"
+            autoplay
+            animation-name="tl_jump_bunk_loop"
+            animation-crossfade-duration="350"
+            scale="0.85 0.85 0.85"
+            camera-target="0m 0.3m 0m"
+            camera-orbit="55deg 82deg auto"
+            interaction-prompt="none"
+            disable-zoom
+            disable-pan
+            disable-tap
+            shadow-intensity="0"
+            environment-image="neutral">
+          </model-viewer>
+        </div>
+      </div>
+      <div class="name-card plate">
+        <div class="card-row">
+          <span class="player-tag">P2</span>
+          <div class="name">Tails</div>
+          <span class="score-pill" id="score2" title="Tails Wins">0</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Celebration Confetti Canvas -->
+  <canvas id="confetti" aria-hidden="true"></canvas>
+
+  <!-- Modular Frontend Entry Point -->
+  <script type="module" src="scripts/main.js?v=44"></script>
+</body>
+</html>
