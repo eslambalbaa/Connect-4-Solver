@@ -1,7 +1,9 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <limits>
+#include <utility>
 #include <vector>
 #define COMPUTES constexpr
 constexpr int INF = std::numeric_limits<int>::max();
@@ -30,16 +32,16 @@ class state
     Cell own_color{Cell::empty};
     GameStyle game_style{GameStyle::full_board};
 
-    COMPUTES std::vector<state> get_neighbours() const
+    COMPUTES std::vector<std::pair<int, state>> get_neighbours() const
     {
-        std::vector<state> neighbours;
+        std::vector<std::pair<int, state>> neighbours;
         neighbours.reserve(COLS);
 
         for (int col = 0; col < COLS; ++col)
         {
             if (board[0][col] == Cell::empty)
             {
-                neighbours.emplace_back(apply_move(col));
+                neighbours.emplace_back(col, apply_move(col));
             }
         }
 
@@ -173,6 +175,23 @@ class state
     // it should return a big number if own state is near win and small when
     // other near to win
     // probably should use primes randomness
+};
+
+struct tree_node
+{
+    int col = -1;
+    int level = 0;
+    int value = 0;
+    bool is_max = true;
+    bool pruned = false;
+    std::vector<tree_node> children;
+};
+
+struct search_result
+{
+    state best_move;
+    uint64_t nodes_expanded = 0; // could be massive
+    tree_node root;
 };
 
 // included here cause utility is defined at the end of it

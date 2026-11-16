@@ -11,14 +11,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
   <link rel="modulepreload" href="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js">
-  <link rel="modulepreload" href="scripts/main.js?v=46">
-  <link rel="modulepreload" href="scripts/constants.js?v=46">
+  <link rel="modulepreload" href="scripts/main.js?v=47">
+  <link rel="modulepreload" href="scripts/constants.js?v=47">
   <link rel="modulepreload" href="scripts/perf.js?v=42">
   <link rel="modulepreload" href="scripts/confetti.js?v=42">
-  <link rel="modulepreload" href="scripts/character-manager.js?v=46">
-  <link rel="modulepreload" href="scripts/game.js?v=46">
-  <link rel="modulepreload" href="scripts/board-renderer.js?v=46">
-  <link rel="modulepreload" href="scripts/menu.js?v=46">
+  <link rel="modulepreload" href="scripts/character-manager.js?v=47">
+  <link rel="modulepreload" href="scripts/game.js?v=47">
+  <link rel="modulepreload" href="scripts/board-renderer.js?v=47">
+  <link rel="modulepreload" href="scripts/menu.js?v=47">
+  <link rel="modulepreload" href="scripts/tree-viewer.js?v=47">
 
   <link rel="preload" href="assets/models/shadow.glb" as="fetch" crossorigin>
   <link rel="preload" href="assets/models/tails.glb" as="fetch" crossorigin>
@@ -30,7 +31,7 @@
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
 
   <!-- Main Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=45">
+  <link rel="stylesheet" href="style.css?v=47">
 </head>
 <body class="in-menu">
   <!-- Dynamic animated environment -->
@@ -379,6 +380,20 @@
 
     <!-- Center Connect 4 Board -->
     <section class="center">
+      <div id="aiTelemetry" class="ai-telemetry hidden" aria-label="AI Search Telemetry">
+        <div class="telemetry-pill">
+          <span class="telemetry-tag tag-val">VALUE</span>
+          <span class="telemetry-num" id="aiStatValue">--</span>
+        </div>
+        <div class="telemetry-pill">
+          <span class="telemetry-tag tag-time">TIME</span>
+          <span class="telemetry-num" id="aiStatTime">--</span>
+        </div>
+        <div class="telemetry-pill">
+          <span class="telemetry-tag tag-nodes">NODES</span>
+          <span class="telemetry-num" id="aiStatNodes">--</span>
+        </div>
+      </div>
       <div id="status" class="plate p1" role="status" aria-live="polite">Shadow: your move</div>
       <div id="board" aria-label="Connect 4 Grid">
         <div id="guideline" class="active-guideline p1 visible">
@@ -399,6 +414,16 @@
           </svg>
           <span>RETRY</span>
         </button>
+        <button id="btnShowTree" class="sonic-action-btn sonic-action-tree hidden" type="button" aria-label="Show Minimax Tree (T)">
+          <svg class="action-btn-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="4" r="2.3"></circle>
+            <circle cx="5" cy="19" r="2.3"></circle>
+            <circle cx="12" cy="19" r="2.3"></circle>
+            <circle cx="19" cy="19" r="2.3"></circle>
+            <path d="M12 6.5V12M12 12H5v4.5M12 12v4.5M12 12h7v4.5"></path>
+          </svg>
+          <span>SHOW TREE</span>
+        </button>
         <button id="btnMenu" class="sonic-action-btn sonic-action-menu" type="button" aria-label="Main Menu (M)">
           <svg class="action-btn-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
@@ -406,6 +431,50 @@
           <span>MAIN MENU</span>
         </button>
       </div>
+
+      <section id="treePanel" class="tree-panel hidden" aria-label="Minimax Search Tree Panel">
+        <header class="tree-panel-header">
+          <div class="tree-title-group">
+            <h2 class="tree-panel-title">MINIMAX SEARCH TREE</h2>
+            <div id="treeMetaSummary" class="tree-meta-summary"></div>
+          </div>
+          <div class="tree-panel-controls">
+            <button type="button" id="btnTreeTabVisual" class="sonic-action-btn tree-tab-btn active">
+              <span>VISUAL TREE</span>
+            </button>
+            <button type="button" id="btnTreeTabText" class="sonic-action-btn tree-tab-btn">
+              <span>TEXT TRACE</span>
+            </button>
+            <button type="button" id="btnExpandTree" class="sonic-action-btn sonic-action-retry">
+              <span>BEST PATH</span>
+            </button>
+            <button type="button" id="btnCollapseTree" class="sonic-action-btn sonic-action-menu">
+              <span>TOP LEVEL</span>
+            </button>
+            <button type="button" id="btnCloseTreePanel" class="sonic-action-btn sonic-action-tree">
+              <span>HIDE</span>
+            </button>
+          </div>
+        </header>
+
+        <div class="tree-col-section">
+          <div class="tree-section-label">BOARD HEURISTIC VALUES (LEVEL 1 COLUMNS)</div>
+          <div id="treeColStrip" class="tree-col-strip"></div>
+        </div>
+
+        <div id="treeVisualPane" class="tree-visual-pane">
+          <div id="treeCanvasScroll" class="tree-canvas-scroll">
+            <div id="treeCanvasInner" class="tree-canvas-inner">
+              <svg id="treeSvgLayer" class="tree-svg-layer" aria-hidden="true"></svg>
+              <div id="treeNodesLayer" class="tree-nodes-layer"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="treeTracePane" class="tree-trace-pane hidden">
+          <pre id="treeTracePre" class="tree-trace-pre"></pre>
+        </div>
+      </section>
     </section>
 
     <!-- Player 2: Tails (Right Panel) -->
@@ -447,6 +516,6 @@
   <canvas id="confetti" aria-hidden="true"></canvas>
 
   <!-- Modular Frontend Entry Point -->
-  <script type="module" src="scripts/main.js?v=46"></script>
+  <script type="module" src="scripts/main.js?v=47"></script>
 </body>
 </html>

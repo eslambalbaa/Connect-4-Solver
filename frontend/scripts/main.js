@@ -4,13 +4,14 @@
  * input controller, and match state manager for Connect 4: Shadow vs Tails.
  */
 
-import { AI_CONFIG, BOARD_CONFIG, GAME_MODES, GAME_STYLES, PLAYERS } from './constants.js?v=46';
+import { AI_CONFIG, BOARD_CONFIG, GAME_MODES, GAME_STYLES, PLAYERS } from './constants.js?v=47';
 import { perf } from './perf.js?v=42';
 import { ConfettiEngine } from './confetti.js?v=42';
-import { CharacterManager } from './character-manager.js?v=46';
-import { Connect4Game } from './game.js?v=46';
-import { BoardRenderer } from './board-renderer.js?v=46';
-import { MenuManager } from './menu.js?v=46';
+import { CharacterManager } from './character-manager.js?v=47';
+import { Connect4Game } from './game.js?v=47';
+import { BoardRenderer } from './board-renderer.js?v=47';
+import { MenuManager } from './menu.js?v=47';
+import { TreeViewer } from './tree-viewer.js?v=47';
 
 document.addEventListener('DOMContentLoaded', () => {
   // DOM References
@@ -80,6 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   const game = new Connect4Game();
+  const treeViewer = new TreeViewer();
 
   const CENTER_COL = Math.floor(BOARD_CONFIG.COLS / 2);
 
@@ -158,6 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
     confetti.stop();
     characterManager.resetStates();
     boardRenderer.clear();
+    treeViewer.resetTelemetry();
     syncUI();
 
     if (!game.isOver && isCpuTurn() && !menuManager.isInMenu) {
@@ -228,6 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
     isAiThinking = true;
     activeColumn = CENTER_COL;
     const turnStartMs = performance.now();
+    treeViewer.setThinkingState();
     syncUI();
 
     aiAbortController = new AbortController();
@@ -258,6 +262,17 @@ document.addEventListener('DOMContentLoaded', () => {
       if (aiCol < 0) {
         throw new Error('Solver returned an invalid move');
       }
+
+      treeViewer.recordMoveResult({
+        tree: data.tree,
+        chosenCol: aiCol,
+        cpuPlayer,
+        algorithm: currentAlgorithm,
+        gameStyle: currentGameStyle,
+        maxLevels: currentMaxLevels,
+        nodesExpanded: data.nodes_expanded,
+        timeMs: data.time_ms
+      });
 
       const remainingSpawnMs = Math.max(0, 220 - (performance.now() - turnStartMs));
       if (remainingSpawnMs > 0) {
@@ -369,6 +384,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       cpuPlayer = typeof options.cpuPlayer === 'number' ? options.cpuPlayer : AI_CONFIG.CPU_PLAYER;
       currentMaxLevels = typeof options.maxLevels === 'number' ? options.maxLevels : AI_CONFIG.MAX_LEVELS;
+      treeViewer.setAiModeVisible(mode === GAME_MODES.HUMAN_VS_AI);
       resetMatch();
     }
   });
@@ -387,6 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
       isDropping = false;
       confetti.stop();
       characterManager.resetStates();
+      treeViewer.closePanel();
       menuManager.returnToMenu();
     }
   });
@@ -427,24 +444,34 @@ document.addEventListener('DOMContentLoaded', () => {
   // Keyboard navigation & controls
   window.addEventListener('keydown', (e) => {
     if (['ArrowLeft', 'ArrowRight', 'ArrowDown', 'Enter', ' '].includes(e.key)) {
-      if (!menuManager.isInMenu) {
+      if (!menuManager.isInMenu && !treeViewer.isOpen()) {
         e.preventDefault();
       }
     }
 
     if (e.key === 'Escape' || e.key === 'm' || e.key === 'M') {
       if (!menuManager.isInMenu && !menuManager.isTransitioning) {
+        if (e.key === 'Escape' && treeViewer.isOpen()) {
+          treeViewer.closePanel();
+          return;
+        }
         matchGeneration++;
         abortPendingAiMove();
         isDropping = false;
         confetti.stop();
         characterManager.resetStates();
+        treeViewer.closePanel();
         menuManager.returnToMenu();
         return;
       }
     }
 
     if (menuManager.isInMenu || menuManager.isTransitioning) {
+      return;
+    }
+
+    if ((e.key === 't' || e.key === 'T') && currentMode === GAME_MODES.HUMAN_VS_AI && !e.repeat) {
+      treeViewer.togglePanel();
       return;
     }
 

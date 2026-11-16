@@ -4,7 +4,7 @@
  * algorithm selection view, keyboard navigation, and animated entrance sequence.
  */
 
-import { AI_CONFIG, GAME_MODES, GAME_STYLES, PLAYERS } from './constants.js?v=46';
+import { AI_CONFIG, GAME_MODES, GAME_STYLES, PLAYERS } from './constants.js?v=47';
 
 export class MenuManager {
   /**
