@@ -11,14 +11,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
   <link rel="modulepreload" href="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js">
-  <link rel="modulepreload" href="scripts/main.js?v=45">
-  <link rel="modulepreload" href="scripts/constants.js?v=42">
+  <link rel="modulepreload" href="scripts/main.js?v=46">
+  <link rel="modulepreload" href="scripts/constants.js?v=46">
   <link rel="modulepreload" href="scripts/perf.js?v=42">
   <link rel="modulepreload" href="scripts/confetti.js?v=42">
-  <link rel="modulepreload" href="scripts/character-manager.js?v=42">
-  <link rel="modulepreload" href="scripts/game.js?v=42">
-  <link rel="modulepreload" href="scripts/board-renderer.js?v=43">
-  <link rel="modulepreload" href="scripts/menu.js?v=45">
+  <link rel="modulepreload" href="scripts/character-manager.js?v=46">
+  <link rel="modulepreload" href="scripts/game.js?v=46">
+  <link rel="modulepreload" href="scripts/board-renderer.js?v=46">
+  <link rel="modulepreload" href="scripts/menu.js?v=46">
 
   <link rel="preload" href="assets/models/shadow.glb" as="fetch" crossorigin>
   <link rel="preload" href="assets/models/tails.glb" as="fetch" crossorigin>
@@ -128,6 +128,58 @@
         </button>
       </section>
 
+      <section id="menuGameStyleView" class="menu-action-stack hidden" aria-label="Game Style Selection">
+        <h2 class="menu-subview-title">CHOOSE GAME MODE</h2>
+
+        <button type="button" id="btnStyleFirstFour" class="sonic-btn sonic-btn-primary" aria-label="First Four Mode">
+          <div class="sonic-btn-decor">
+            <span class="sonic-btn-chevron-box">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                <circle cx="4.5" cy="12" r="2.2"/>
+                <circle cx="9.5" cy="12" r="2.2"/>
+                <circle cx="14.5" cy="12" r="2.2"/>
+                <circle cx="19.5" cy="12" r="2.2"/>
+              </svg>
+            </span>
+          </div>
+          <div class="sonic-btn-content">
+            <span class="sonic-btn-label">FIRST FOUR</span>
+          </div>
+          <div class="sonic-btn-checker" aria-hidden="true"></div>
+        </button>
+
+        <button type="button" id="btnStyleFullBoard" class="sonic-btn sonic-btn-secondary" aria-label="Full Board Mode">
+          <div class="sonic-btn-decor">
+            <span class="sonic-btn-circle-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="16" rx="2"/>
+                <line x1="9" y1="4" x2="9" y2="20"/>
+                <line x1="15" y1="4" x2="15" y2="20"/>
+                <line x1="3" y1="12" x2="21" y2="12"/>
+              </svg>
+            </span>
+          </div>
+          <div class="sonic-btn-content">
+            <span class="sonic-btn-label">FULL BOARD</span>
+          </div>
+          <div class="sonic-btn-checker" aria-hidden="true"></div>
+        </button>
+
+        <button type="button" id="btnBackToMainFromStyle" class="sonic-btn sonic-btn-tertiary" aria-label="Back to Main Menu">
+          <div class="sonic-btn-decor">
+            <span class="sonic-btn-circle-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+            </span>
+          </div>
+          <div class="sonic-btn-content">
+            <span class="sonic-btn-label">BACK</span>
+          </div>
+          <div class="sonic-btn-checker" aria-hidden="true"></div>
+        </button>
+      </section>
+
       <!-- View 2: AI Algorithm / Difficulty Selection (Kept for User Implementation) -->
       <section id="menuAlgoView" class="menu-action-stack hidden" aria-label="AI Algorithm Selection">
         <div id="algoOptions" class="menu-action-stack" aria-label="Algorithm Options Container">
@@ -160,7 +212,7 @@
           </button>
         </div>
 
-        <button type="button" id="btnBackToModes" class="sonic-btn sonic-btn-tertiary" aria-label="Back to Mode Selection">
+        <button type="button" id="btnBackToModes" class="sonic-btn sonic-btn-tertiary" aria-label="Back to Game Mode Selection">
           <div class="sonic-btn-decor">
             <span class="sonic-btn-circle-icon">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
@@ -169,7 +221,7 @@
             </span>
           </div>
           <div class="sonic-btn-content">
-            <span class="sonic-btn-label">BACK TO MODES</span>
+            <span class="sonic-btn-label">BACK</span>
           </div>
           <div class="sonic-btn-checker" aria-hidden="true"></div>
         </button>
@@ -395,6 +447,6 @@
   <canvas id="confetti" aria-hidden="true"></canvas>
 
   <!-- Modular Frontend Entry Point -->
-  <script type="module" src="scripts/main.js?v=45"></script>
+  <script type="module" src="scripts/main.js?v=46"></script>
 </body>
 </html>

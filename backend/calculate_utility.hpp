@@ -6,10 +6,13 @@
 
 namespace internal_calculation
 {
+
 constexpr int MAX_UTIL = 100000;
 constexpr int MIN_UTIL = -MAX_UTIL;
 
-using GridBool = std::array<std::array<int, COLS>, ROWS>;
+constexpr int FOUR_POINT_WEIGHT = 10000;
+
+using GridBool = std::array<std::array<bool, COLS>, ROWS>;
 
 struct ThreatMap
 {
@@ -25,9 +28,14 @@ constexpr std::array<std::array<int, COLS>, ROWS> POSITION_WEIGHTS = {{{3, 4, 5,
                                                                        {4, 6, 8, 10, 8, 6, 4},
                                                                        {3, 4, 5, 7, 5, 4, 3}}};
 
+COMPUTES Cell min_player_color(Cell max_player)
+{
+    return (max_player == Cell::red) ? Cell::yellow : Cell::red;
+}
+
 COMPUTES int positional_score(const state &curr, Cell max_player)
 {
-    const Cell min_player = (max_player == Cell::red) ? Cell::yellow : Cell::red;
+    const Cell min_player = min_player_color(max_player);
     int score = 0;
 
     for (int r = 0; r < ROWS; ++r)
@@ -56,18 +64,42 @@ COMPUTES int drop_distance(const state &curr, int r, int c)
 
 COMPUTES std::optional<int> terminal_score(const state &curr, Cell max_player, int level)
 {
-    for (int r = 0; r < ROWS; ++r)
+
+    // first four game ends in four in a row
+    if (curr.game_style == GameStyle::first_four)
     {
-        for (int c = 0; c < COLS; ++c)
+        for (int r = 0; r < ROWS; ++r)
         {
-            if (curr.four_connected(r, c))
+            for (int c = 0; c < COLS; ++c)
             {
-                return (curr.board[r][c] == max_player) ? MAX_UTIL - level : MIN_UTIL + level;
+                if (curr.four_connected(r, c))
+                    return (curr.board[r][c] == max_player) ? MAX_UTIL - level : MIN_UTIL + level;
             }
         }
     }
 
+    if (curr.is_board_full())
+    {
+        const Cell min_player = min_player_color(max_player);
+        const int diff = curr.count_fours(max_player) - curr.count_fours(min_player);
+        if (diff > 0)
+            return MAX_UTIL + diff * FOUR_POINT_WEIGHT - level;
+        if (diff < 0)
+            return MIN_UTIL + diff * FOUR_POINT_WEIGHT + level;
+
+        return 0;
+    }
+
     return std::nullopt;
+}
+
+COMPUTES int connected_fours_score(const state &curr, Cell max_player)
+{
+    if (curr.game_style != GameStyle::full_board)
+        return 0;
+
+    const Cell min_player = min_player_color(max_player);
+    return (curr.count_fours(max_player) - curr.count_fours(min_player)) * FOUR_POINT_WEIGHT;
 }
 
 COMPUTES int score_threats(const state &curr, const ThreatMap &threats)
@@ -106,7 +138,7 @@ COMPUTES int score_threats(const state &curr, const ThreatMap &threats)
 
 COMPUTES int evaluate_window(const state &curr, int r, int c, int dr, int dc, Cell max_player, ThreatMap &threats)
 {
-    const Cell min_player = (max_player == Cell::red) ? Cell::yellow : Cell::red;
+    const Cell min_player = min_player_color(max_player);
     int max_cnt = 0;
     int min_cnt = 0;
     int empty_r = -1;
@@ -189,6 +221,8 @@ COMPUTES static int evaluate(const state &curr, Cell max_player, int level)
 
     ThreatMap threats;
     int score = 0;
+
+    score += connected_fours_score(curr, max_player);
     score += scan_all_windows(curr, max_player, threats);
     score += score_threats(curr, threats);
     score += positional_score(curr, max_player);

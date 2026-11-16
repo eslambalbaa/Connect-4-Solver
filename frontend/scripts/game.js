@@ -4,7 +4,7 @@
  * and win-condition verification.
  */
 
-import { BOARD_CONFIG } from './constants.js?v=42';
+import { BOARD_CONFIG, GAME_STYLES } from './constants.js?v=46';
 
 export class Connect4Game {
   constructor() {
@@ -12,6 +12,7 @@ export class Connect4Game {
     this.cols = BOARD_CONFIG.COLS;
     this.grid = [];
     this.currentPlayer = 1;
+    this.gameStyle = GAME_STYLES.FIRST_FOUR;
     this.isOver = false;
     this.isLocked = false;
     this.totalMoves = 0;
@@ -22,9 +23,10 @@ export class Connect4Game {
   /**
    * Resets the game state back to an empty grid and player 1.
    */
-  reset() {
+  reset(gameStyle = this.gameStyle) {
     this.grid = Array.from({ length: this.rows }, () => Array(this.cols).fill(0));
     this.currentPlayer = 1;
+    this.gameStyle = gameStyle;
     this.isOver = false;
     this.isLocked = false;
     this.totalMoves = 0;
@@ -82,12 +84,69 @@ export class Connect4Game {
     return foundCol;
   }
 
+  getFourStats(player) {
+    const directions = [
+      [0, 1],
+      [1, 0],
+      [1, 1],
+      [1, -1]
+    ];
+    let count = 0;
+    const seen = new Set();
+    const cells = [];
+
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        if (this.grid[r][c] !== player) continue;
+
+        for (const [dr, dc] of directions) {
+          let matched = true;
+          for (let i = 1; i < 4; i++) {
+            const nr = r + i * dr;
+            const nc = c + i * dc;
+            if (
+              nr < 0 ||
+              nr >= this.rows ||
+              nc < 0 ||
+              nc >= this.cols ||
+              this.grid[nr][nc] !== player
+            ) {
+              matched = false;
+              break;
+            }
+          }
+          if (matched) {
+            count++;
+            for (let i = 0; i < 4; i++) {
+              const nr = r + i * dr;
+              const nc = c + i * dc;
+              const key = `${nr},${nc}`;
+              if (!seen.has(key)) {
+                seen.add(key);
+                cells.push([nr, nc]);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return { count, cells };
+  }
+
+  getFourCounts() {
+    return {
+      1: this.getFourStats(1).count,
+      2: this.getFourStats(2).count
+    };
+  }
+
   /**
    * Places a disc for the current player in the specified column.
    * Returns placement result object with row, player, winLine, isDraw.
    *
    * @param {number} col
-   * @returns {{ success: boolean, row?: number, col?: number, player?: number, winLine?: Array<[number, number]>, isDraw?: boolean }}
+   * @returns {{ success: boolean, row?: number, col?: number, player?: number, winnerId?: number|null, winLine?: Array<[number, number]>|null, isDraw?: boolean, fours?: {1: number, 2: number}|null }}
    */
   dropPiece(col) {
     if (this.isLocked || this.isOver) {
@@ -103,14 +162,37 @@ export class Connect4Game {
     this.grid[row][col] = player;
     this.totalMoves++;
 
-    const winLine = this.checkWin(row, col);
+    let winnerId = null;
+    let winLine = null;
     let isDraw = false;
+    let fours = null;
 
-    if (winLine) {
-      this.isOver = true;
-    } else if (this.totalMoves >= this.rows * this.cols) {
-      this.isOver = true;
-      isDraw = true;
+    if (this.gameStyle === GAME_STYLES.FULL_BOARD) {
+      const p1 = this.getFourStats(1);
+      const p2 = this.getFourStats(2);
+      fours = { 1: p1.count, 2: p2.count };
+
+      if (this.totalMoves >= this.rows * this.cols) {
+        this.isOver = true;
+        if (p1.count > p2.count) {
+          winnerId = 1;
+          winLine = p1.cells;
+        } else if (p2.count > p1.count) {
+          winnerId = 2;
+          winLine = p2.cells;
+        } else {
+          isDraw = true;
+        }
+      }
+    } else {
+      winLine = this.checkWin(row, col);
+      if (winLine) {
+        this.isOver = true;
+        winnerId = player;
+      } else if (this.totalMoves >= this.rows * this.cols) {
+        this.isOver = true;
+        isDraw = true;
+      }
     }
 
     return {
@@ -118,8 +200,10 @@ export class Connect4Game {
       row,
       col,
       player,
+      winnerId,
       winLine: winLine || null,
-      isDraw
+      isDraw,
+      fours
     };
   }
 

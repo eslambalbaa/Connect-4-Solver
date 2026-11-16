@@ -4,13 +4,13 @@
  * input controller, and match state manager for Connect 4: Shadow vs Tails.
  */
 
-import { AI_CONFIG, BOARD_CONFIG, GAME_MODES, PLAYERS } from './constants.js?v=42';
+import { AI_CONFIG, BOARD_CONFIG, GAME_MODES, GAME_STYLES, PLAYERS } from './constants.js?v=46';
 import { perf } from './perf.js?v=42';
 import { ConfettiEngine } from './confetti.js?v=42';
-import { CharacterManager } from './character-manager.js?v=42';
-import { Connect4Game } from './game.js?v=42';
-import { BoardRenderer } from './board-renderer.js?v=43';
-import { MenuManager } from './menu.js?v=45';
+import { CharacterManager } from './character-manager.js?v=46';
+import { Connect4Game } from './game.js?v=46';
+import { BoardRenderer } from './board-renderer.js?v=46';
+import { MenuManager } from './menu.js?v=46';
 
 document.addEventListener('DOMContentLoaded', () => {
   // DOM References
@@ -87,6 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let isDropping = false;
   let isAiThinking = false;
   let currentMode = GAME_MODES.HUMAN_VS_HUMAN;
+  let currentGameStyle = GAME_STYLES.FIRST_FOUR;
   let currentAlgorithm = AI_CONFIG.DEFAULT_ALGORITHM;
   let currentMaxLevels = AI_CONFIG.MAX_LEVELS;
   let cpuPlayer = AI_CONFIG.CPU_PLAYER;
@@ -130,10 +131,16 @@ document.addEventListener('DOMContentLoaded', () => {
     characterManager.updateActivePanel(player, isOver);
 
     if (!isOver) {
+      let scoreSuffix = '';
+      if (currentGameStyle === GAME_STYLES.FULL_BOARD) {
+        const fours = game.getFourCounts();
+        scoreSuffix = ` (${fours[1]} - ${fours[2]})`;
+      }
+
       if (isAiThinking) {
-        boardRenderer.updateStatus(`${PLAYERS[player].name} is thinking...`, player);
+        boardRenderer.updateStatus(`${PLAYERS[player].name} is thinking...${scoreSuffix}`, player);
       } else {
-        boardRenderer.updateStatus(`${PLAYERS[player].name}: your move`, player);
+        boardRenderer.updateStatus(`${PLAYERS[player].name}: your move${scoreSuffix}`, player);
       }
     }
   }
@@ -144,7 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function resetMatch() {
     matchGeneration++;
     abortPendingAiMove();
-    game.reset();
+    game.reset(currentGameStyle);
     isDropping = false;
     activeColumn = CENTER_COL;
 
@@ -175,12 +182,18 @@ document.addEventListener('DOMContentLoaded', () => {
       return false;
     }
 
-    if (dropResult.winLine) {
-      const winnerId = dropResult.player;
+    if (dropResult.winnerId) {
+      const winnerId = dropResult.winnerId;
       const winnerName = PLAYERS[winnerId].name;
 
       boardRenderer.highlightWinners(dropResult.winLine);
-      boardRenderer.updateStatus(`${winnerName} wins! Press R or Click to rematch`, winnerId);
+      if (currentGameStyle === GAME_STYLES.FULL_BOARD && dropResult.fours) {
+        const high = Math.max(dropResult.fours[1], dropResult.fours[2]);
+        const low = Math.min(dropResult.fours[1], dropResult.fours[2]);
+        boardRenderer.updateStatus(`${winnerName} wins ${high} - ${low}! Press R or Click to rematch`, winnerId);
+      } else {
+        boardRenderer.updateStatus(`${winnerName} wins! Press R or Click to rematch`, winnerId);
+      }
       recordWinScore(winnerId);
 
       // Choreographed staggered victory & defeat sequences
@@ -190,7 +203,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
     } else if (dropResult.isDraw) {
-      boardRenderer.updateStatus('Draw Game! Press R or Click to rematch', null);
+      if (currentGameStyle === GAME_STYLES.FULL_BOARD && dropResult.fours) {
+        boardRenderer.updateStatus(`Draw ${dropResult.fours[1]} - ${dropResult.fours[2]}! Press R or Click to rematch`, null);
+      } else {
+        boardRenderer.updateStatus('Draw Game! Press R or Click to rematch', null);
+      }
       characterManager.handleDraw();
     } else {
       game.switchPlayer();
@@ -220,6 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           algorithm: currentAlgorithm,
+          game_style: currentGameStyle,
           color: cpuPlayer,
           max_levels: currentMaxLevels,
           board: game.grid
@@ -317,12 +335,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const menuManager = new MenuManager({
     introScreenEl: document.getElementById('intro-screen'),
     mainViewEl: document.getElementById('menuMainView'),
+    gameStyleViewEl: document.getElementById('menuGameStyleView'),
     algoViewEl: document.getElementById('menuAlgoView'),
     characterViewEl: document.getElementById('menuCharacterView'),
     depthViewEl: document.getElementById('menuDepthView'),
     howToPlayViewEl: document.getElementById('menuHowToPlayView'),
     btnHumanVsHuman: document.getElementById('btnHumanVsHuman'),
     btnHumanVsAi: document.getElementById('btnHumanVsAi'),
+    btnStyleFirstFour: document.getElementById('btnStyleFirstFour'),
+    btnStyleFullBoard: document.getElementById('btnStyleFullBoard'),
+    btnBackToMainFromStyle: document.getElementById('btnBackToMainFromStyle'),
     btnAlgoMinimax: document.getElementById('btnAlgoMinimax'),
     btnAlgoAlphaBeta: document.getElementById('btnAlgoAlphaBeta'),
     btnChooseShadow: document.getElementById('btnChooseShadow'),
@@ -341,6 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
     centerSection: document.querySelector('.center'),
     onStartGame: (mode, options = {}) => {
       currentMode = mode;
+      currentGameStyle = typeof options.gameStyle === 'number' ? options.gameStyle : GAME_STYLES.FIRST_FOUR;
       if (typeof options.algorithm === 'number') {
         currentAlgorithm = options.algorithm;
       }

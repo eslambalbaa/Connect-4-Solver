@@ -39,6 +39,11 @@ export const GAME_MODES = Object.freeze({
   HUMAN_VS_AI: 'human_vs_ai'
 });
 
+export const GAME_STYLES = Object.freeze({
+  FULL_BOARD: 0,
+  FIRST_FOUR: 1
+});
+
 export const AI_CONFIG = Object.freeze({
   ALGORITHMS: Object.freeze({
     MINIMAX: 0,

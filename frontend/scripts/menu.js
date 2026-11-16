@@ -4,19 +4,23 @@
  * algorithm selection view, keyboard navigation, and animated entrance sequence.
  */
 
-import { AI_CONFIG, GAME_MODES, PLAYERS } from './constants.js?v=42';
+import { AI_CONFIG, GAME_MODES, GAME_STYLES, PLAYERS } from './constants.js?v=46';
 
 export class MenuManager {
   /**
    * @param {Object} options
    * @param {HTMLElement} options.introScreenEl
    * @param {HTMLElement} options.mainViewEl
+   * @param {HTMLElement} [options.gameStyleViewEl]
    * @param {HTMLElement} options.algoViewEl
    * @param {HTMLElement} [options.characterViewEl]
    * @param {HTMLElement} [options.depthViewEl]
    * @param {HTMLElement} [options.howToPlayViewEl]
    * @param {HTMLElement} options.btnHumanVsHuman
    * @param {HTMLElement} options.btnHumanVsAi
+   * @param {HTMLElement} [options.btnStyleFirstFour]
+   * @param {HTMLElement} [options.btnStyleFullBoard]
+   * @param {HTMLElement} [options.btnBackToMainFromStyle]
    * @param {HTMLElement} [options.btnAlgoMinimax]
    * @param {HTMLElement} [options.btnAlgoAlphaBeta]
    * @param {HTMLElement} [options.btnChooseShadow]
@@ -38,12 +42,16 @@ export class MenuManager {
   constructor({
     introScreenEl,
     mainViewEl,
+    gameStyleViewEl = null,
     algoViewEl,
     characterViewEl = null,
     depthViewEl = null,
     howToPlayViewEl = null,
     btnHumanVsHuman,
     btnHumanVsAi,
+    btnStyleFirstFour = null,
+    btnStyleFullBoard = null,
+    btnBackToMainFromStyle = null,
     btnAlgoMinimax = null,
     btnAlgoAlphaBeta = null,
     btnChooseShadow = null,
@@ -64,12 +72,16 @@ export class MenuManager {
   }) {
     this.introScreenEl = introScreenEl;
     this.mainViewEl = mainViewEl;
+    this.gameStyleViewEl = gameStyleViewEl;
     this.algoViewEl = algoViewEl;
     this.characterViewEl = characterViewEl;
     this.depthViewEl = depthViewEl;
     this.howToPlayViewEl = howToPlayViewEl;
     this.btnHumanVsHuman = btnHumanVsHuman;
     this.btnHumanVsAi = btnHumanVsAi;
+    this.btnStyleFirstFour = btnStyleFirstFour;
+    this.btnStyleFullBoard = btnStyleFullBoard;
+    this.btnBackToMainFromStyle = btnBackToMainFromStyle;
     this.btnAlgoMinimax = btnAlgoMinimax;
     this.btnAlgoAlphaBeta = btnAlgoAlphaBeta;
     this.btnChooseShadow = btnChooseShadow;
@@ -91,6 +103,8 @@ export class MenuManager {
     this.isInMenu = true;
     this.isTransitioning = false;
     this.currentView = 'main';
+    this.selectedMode = GAME_MODES.HUMAN_VS_HUMAN;
+    this.selectedGameStyle = GAME_STYLES.FIRST_FOUR;
     this.selectedAlgorithm = AI_CONFIG.DEFAULT_ALGORITHM;
     this.selectedHumanPlayer = PLAYERS[1].id;
     this.selectedCpuPlayer = PLAYERS[2].id;
@@ -125,6 +139,26 @@ export class MenuManager {
     }
   }
 
+  hideAllViews() {
+    this.mainViewEl?.classList.add('hidden');
+    this.gameStyleViewEl?.classList.add('hidden');
+    this.algoViewEl?.classList.add('hidden');
+    this.characterViewEl?.classList.add('hidden');
+    this.depthViewEl?.classList.add('hidden');
+    this.howToPlayViewEl?.classList.add('hidden');
+  }
+
+  handleGameStyleSelected(gameStyle) {
+    this.selectedGameStyle = gameStyle;
+    if (this.selectedMode === GAME_MODES.HUMAN_VS_HUMAN) {
+      this.startEntranceSequence(GAME_MODES.HUMAN_VS_HUMAN, {
+        gameStyle: this.selectedGameStyle
+      });
+    } else {
+      this.showAlgoView();
+    }
+  }
+
   /**
    * Attaches click and keyboard handlers to menu buttons.
    * @private
@@ -132,12 +166,27 @@ export class MenuManager {
   initEvents() {
     this.btnHumanVsHuman?.addEventListener('click', () => {
       if (this.isTransitioning) return;
-      this.startEntranceSequence(GAME_MODES.HUMAN_VS_HUMAN);
+      this.showGameStyleView(GAME_MODES.HUMAN_VS_HUMAN);
     });
 
     this.btnHumanVsAi?.addEventListener('click', () => {
       if (this.isTransitioning) return;
-      this.showAlgoView();
+      this.showGameStyleView(GAME_MODES.HUMAN_VS_AI);
+    });
+
+    this.btnStyleFirstFour?.addEventListener('click', () => {
+      if (this.isTransitioning) return;
+      this.handleGameStyleSelected(GAME_STYLES.FIRST_FOUR);
+    });
+
+    this.btnStyleFullBoard?.addEventListener('click', () => {
+      if (this.isTransitioning) return;
+      this.handleGameStyleSelected(GAME_STYLES.FULL_BOARD);
+    });
+
+    this.btnBackToMainFromStyle?.addEventListener('click', () => {
+      if (this.isTransitioning) return;
+      this.showMainView();
     });
 
     this.btnAlgoMinimax?.addEventListener('click', () => {
@@ -185,6 +234,7 @@ export class MenuManager {
       if (this.isTransitioning) return;
       const maxLevels = this.commitDepthInput();
       this.startEntranceSequence(GAME_MODES.HUMAN_VS_AI, {
+        gameStyle: this.selectedGameStyle,
         algorithm: this.selectedAlgorithm,
         humanPlayer: this.selectedHumanPlayer,
         cpuPlayer: this.selectedCpuPlayer,
@@ -204,7 +254,7 @@ export class MenuManager {
 
     this.btnBackToModes?.addEventListener('click', () => {
       if (this.isTransitioning) return;
-      this.showMainView();
+      this.showGameStyleView(this.selectedMode);
     });
 
     this.btnHowToPlay?.addEventListener('click', () => {
@@ -229,8 +279,15 @@ export class MenuManager {
           this.showAlgoView();
         } else if (this.currentView === 'algo') {
           e.preventDefault();
+          this.showGameStyleView(this.selectedMode);
+        } else if (this.currentView === 'gameStyle') {
+          e.preventDefault();
           this.showMainView();
-          this.btnHumanVsAi?.focus();
+          if (this.selectedMode === GAME_MODES.HUMAN_VS_AI) {
+            this.btnHumanVsAi?.focus();
+          } else {
+            this.btnHumanVsHuman?.focus();
+          }
         } else if (this.currentView === 'howToPlay') {
           e.preventDefault();
           this.showMainView();
@@ -242,6 +299,20 @@ export class MenuManager {
           this.btnHumanVsAi?.focus();
         } else {
           this.btnHumanVsHuman?.focus();
+        }
+      } else if (this.currentView === 'gameStyle' && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        e.preventDefault();
+        if (document.activeElement === this.btnStyleFirstFour) {
+          this.btnStyleFullBoard?.focus();
+        } else {
+          this.btnStyleFirstFour?.focus();
+        }
+      } else if (this.currentView === 'algo' && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        e.preventDefault();
+        if (document.activeElement === this.btnAlgoMinimax) {
+          this.btnAlgoAlphaBeta?.focus();
+        } else {
+          this.btnAlgoMinimax?.focus();
         }
       } else if (this.currentView === 'character' && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
         e.preventDefault();
@@ -259,11 +330,16 @@ export class MenuManager {
    */
   showMainView() {
     this.currentView = 'main';
-    this.algoViewEl?.classList.add('hidden');
-    this.characterViewEl?.classList.add('hidden');
-    this.depthViewEl?.classList.add('hidden');
-    this.howToPlayViewEl?.classList.add('hidden');
+    this.hideAllViews();
     this.mainViewEl?.classList.remove('hidden');
+  }
+
+  showGameStyleView(mode) {
+    this.currentView = 'gameStyle';
+    this.selectedMode = mode;
+    this.hideAllViews();
+    this.gameStyleViewEl?.classList.remove('hidden');
+    this.btnStyleFirstFour?.focus();
   }
 
   /**
@@ -271,10 +347,7 @@ export class MenuManager {
    */
   showAlgoView() {
     this.currentView = 'algo';
-    this.mainViewEl?.classList.add('hidden');
-    this.characterViewEl?.classList.add('hidden');
-    this.depthViewEl?.classList.add('hidden');
-    this.howToPlayViewEl?.classList.add('hidden');
+    this.hideAllViews();
     this.algoViewEl?.classList.remove('hidden');
     this.btnAlgoMinimax?.focus();
   }
@@ -282,10 +355,7 @@ export class MenuManager {
   showCharacterView(algorithm) {
     this.currentView = 'character';
     this.selectedAlgorithm = algorithm;
-    this.mainViewEl?.classList.add('hidden');
-    this.algoViewEl?.classList.add('hidden');
-    this.depthViewEl?.classList.add('hidden');
-    this.howToPlayViewEl?.classList.add('hidden');
+    this.hideAllViews();
     this.characterViewEl?.classList.remove('hidden');
     this.btnChooseShadow?.focus();
   }
@@ -294,10 +364,7 @@ export class MenuManager {
     this.currentView = 'depth';
     this.selectedHumanPlayer = humanPlayer;
     this.selectedCpuPlayer = cpuPlayer;
-    this.mainViewEl?.classList.add('hidden');
-    this.algoViewEl?.classList.add('hidden');
-    this.characterViewEl?.classList.add('hidden');
-    this.howToPlayViewEl?.classList.add('hidden');
+    this.hideAllViews();
     this.depthViewEl?.classList.remove('hidden');
     if (this.inputMaxLevels) {
       this.inputMaxLevels.value = String(this.selectedMaxLevels);
@@ -311,10 +378,7 @@ export class MenuManager {
    */
   showHowToPlayView() {
     this.currentView = 'howToPlay';
-    this.mainViewEl?.classList.add('hidden');
-    this.algoViewEl?.classList.add('hidden');
-    this.characterViewEl?.classList.add('hidden');
-    this.depthViewEl?.classList.add('hidden');
+    this.hideAllViews();
     this.howToPlayViewEl?.classList.remove('hidden');
     this.btnCloseHowToPlay?.focus();
   }

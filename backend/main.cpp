@@ -1,7 +1,9 @@
 #include "alpha_beta.hpp"
 #include "definitions.hpp"
 #include "minimax.hpp"
+#include <format>
 #include <iostream>
+#include <string>
 
 constexpr int default_max_levels = 6;
 
@@ -17,6 +19,14 @@ Algorithm choose_algorithm()
     std::cin >> choice;
 
     return static_cast<Algorithm>(choice);
+}
+
+GameStyle get_game_style()
+{
+    int choice;
+    std::cin >> choice;
+
+    return static_cast<GameStyle>(choice);
 }
 
 Cell choose_color()
@@ -92,15 +102,17 @@ void emit_best_state(const state &best)
     std::cout << serialize_state(best) << '\n' << std::flush;
 }
 
-void launch_algorithm(Algorithm algorithm, Cell color, int max_levels = default_max_levels)
+void launch_algorithm(Algorithm algorithm, GameStyle game_style, Cell color, int max_levels = default_max_levels)
 {
     state current;
+    current.game_style = game_style;
+    current.own_color = color;
+
     while (input_state(current))
     {
         if (current.is_terminal())
             break;
 
-        current.own_color = color;
         state best = use_algorithm(current, algorithm, max_levels);
         emit_best_state(best);
 
@@ -113,9 +125,11 @@ int main()
 {
     Algorithm choice = choose_algorithm();
 
+    GameStyle game_style = get_game_style();
+
     Cell solver_color = choose_color();
 
     int max_levels = get_max_levels();
 
-    launch_algorithm(choice, solver_color, max_levels);
+    launch_algorithm(choice, game_style, solver_color, max_levels);
 }

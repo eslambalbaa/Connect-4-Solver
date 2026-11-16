@@ -57,6 +57,7 @@ def get_move():
     board_flat = " ".join(str(cell) for row in payload["board"] for cell in row)
     solver_input = (
         f"{payload['algorithm']} "
+        f"{payload.get('game_style', 0)} "
         f"{payload['color']} "
         f"{payload['max_levels']} "
         f"{board_flat}\n"

@@ -9,6 +9,13 @@ constexpr int INF = std::numeric_limits<int>::max();
 constexpr int ROWS = 6;
 constexpr int COLS = 7;
 constexpr int MAXCONNECTED = 4;
+
+enum class GameStyle
+{
+    full_board,
+    first_four
+};
+
 enum class Cell
 {
     empty,
@@ -21,6 +28,7 @@ class state
   public:
     std::array<std::array<Cell, COLS>, ROWS> board{};
     Cell own_color{Cell::empty};
+    GameStyle game_style{GameStyle::full_board};
 
     COMPUTES std::vector<state> get_neighbours() const
     {
@@ -95,9 +103,48 @@ class state
         return false;
     }
 
-    COMPUTES bool is_terminal() const
+    COMPUTES int count_fours(Cell target) const
     {
-        // check for win
+        if (target == Cell::empty)
+            return 0;
+
+        constexpr std::array<std::pair<int, int>, 4> directions = {{{0, 1}, {1, 0}, {1, 1}, {1, -1}}};
+        int total = 0;
+
+        for (int r = 0; r < ROWS; ++r)
+        {
+            for (int c = 0; c < COLS; ++c)
+            {
+                if (board[r][c] != target)
+                    continue;
+
+                for (const auto &[dr, dc] : directions)
+                {
+                    if (1 + count_consecutive(r, c, dr, dc, target) >= MAXCONNECTED)
+                    {
+                        ++total;
+                    }
+                }
+            }
+        }
+
+        return total;
+    }
+
+    COMPUTES bool is_board_full() const
+    {
+        for (int c = 0; c < COLS; ++c)
+        {
+            if (board[0][c] == Cell::empty)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    COMPUTES bool has_any_four() const
+    {
         for (int r = 0; r < ROWS; ++r)
         {
             for (int c = 0; c < COLS; ++c)
@@ -109,16 +156,16 @@ class state
             }
         }
 
-        // check for draw
-        for (int c = 0; c < COLS; ++c)
-        {
-            if (board[0][c] == Cell::empty)
-            {
-                return false;
-            }
-        }
+        return false;
+    }
 
-        return true;
+    COMPUTES bool is_terminal() const
+    {
+        // check for win
+        if (game_style == GameStyle::first_four and has_any_four())
+            return true;
+
+        return is_board_full();
     }
 
     COMPUTES int utility(Cell max_player, int level) const;
