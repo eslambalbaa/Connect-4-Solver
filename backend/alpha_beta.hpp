@@ -1,7 +1,8 @@
 #pragma once
 
 #include "definitions.hpp"
-#include <cstddef>
+#include <algorithm>
+#include <utility>
 
 class alpha_beta
 {
@@ -39,9 +40,12 @@ class alpha_beta
         state best_move;
         auto neighbours = curr.get_neighbours();
 
-        for (size_t i = 0; i < neighbours.size(); ++i)
+        for (int col = 0; col < COLS; ++col)
         {
-            auto &[col, child] = neighbours[i];
+            if (neighbours[col].own_color == Cell::empty)
+                continue;
+
+            const state &child = neighbours[col];
 
             tree_node child_node;
             child_node.col = col;
@@ -49,7 +53,7 @@ class alpha_beta
             child_node.is_max = false;
 
             auto [value2, _] = min_value(child, alpha, beta, level + 1, k, max_player, nodes_expanded, child_node);
-            node.children.push_back(child_node);
+            node.children.push_back(std::move(child_node));
 
             if (value2 > value)
             {
@@ -60,14 +64,17 @@ class alpha_beta
 
             if (value >= beta)
             {
-                for (size_t j = i + 1; j < neighbours.size(); ++j)
+                for (int j = col + 1; j < COLS; ++j)
                 {
+                    if (neighbours[j].own_color == Cell::empty)
+                        continue;
+
                     tree_node pruned_node;
-                    pruned_node.col = neighbours[j].first;
+                    pruned_node.col = j;
                     pruned_node.level = level + 1;
                     pruned_node.is_max = false;
                     pruned_node.pruned = true;
-                    node.children.push_back(pruned_node);
+                    node.children.push_back(std::move(pruned_node));
                 }
 
                 node.value = value;
@@ -96,9 +103,12 @@ class alpha_beta
         state best_move;
         auto neighbours = curr.get_neighbours();
 
-        for (size_t i = 0; i < neighbours.size(); ++i)
+        for (int col = 0; col < COLS; ++col)
         {
-            auto &[col, child] = neighbours[i];
+            if (neighbours[col].own_color == Cell::empty)
+                continue;
+
+            const state &child = neighbours[col];
 
             tree_node child_node;
             child_node.col = col;
@@ -106,7 +116,7 @@ class alpha_beta
             child_node.is_max = true;
 
             auto [value2, _] = max_value(child, alpha, beta, level + 1, k, max_player, nodes_expanded, child_node);
-            node.children.push_back(child_node);
+            node.children.push_back(std::move(child_node));
 
             if (value2 < value)
             {
@@ -117,10 +127,13 @@ class alpha_beta
 
             if (value <= alpha)
             {
-                for (size_t j = i + 1; j < neighbours.size(); ++j)
+                for (int j = col + 1; j < COLS; ++j)
                 {
+                    if (neighbours[j].own_color == Cell::empty)
+                        continue;
+
                     tree_node pruned_node;
-                    pruned_node.col = neighbours[j].first;
+                    pruned_node.col = j;
                     pruned_node.level = level + 1;
                     pruned_node.is_max = true;
                     pruned_node.pruned = true;

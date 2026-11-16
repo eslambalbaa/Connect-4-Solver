@@ -18,7 +18,7 @@ enum class GameStyle
     first_four
 };
 
-enum class Cell
+enum class Cell : uint8_t
 {
     empty,
     red,
@@ -32,16 +32,15 @@ class state
     Cell own_color{Cell::empty};
     GameStyle game_style{GameStyle::full_board};
 
-    COMPUTES std::vector<std::pair<int, state>> get_neighbours() const
+    COMPUTES std::array<state, COLS> get_neighbours() const
     {
-        std::vector<std::pair<int, state>> neighbours;
-        neighbours.reserve(COLS);
+        std::array<state, COLS> neighbours{};
 
         for (int col = 0; col < COLS; ++col)
         {
             if (board[0][col] == Cell::empty)
             {
-                neighbours.emplace_back(col, apply_move(col));
+                neighbours[col] = apply_move(col);
             }
         }
 

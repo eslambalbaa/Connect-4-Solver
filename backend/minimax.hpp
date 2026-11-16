@@ -37,16 +37,22 @@ class minimax
 
         int value = -INF;
         state best_move;
+        auto neighbours = curr.get_neighbours();
 
-        for (auto &[col, child] : curr.get_neighbours())
+        for (int col = 0; col < COLS; ++col)
         {
+            if (neighbours[col].own_color == Cell::empty)
+                continue;
+
+            const state &child = neighbours[col];
+
             tree_node child_node;
             child_node.col = col;
             child_node.level = level + 1;
             child_node.is_max = false;
 
             auto [value2, _] = min_value(child, level + 1, k, max_player, nodes_expanded, child_node);
-            node.children.push_back(child_node);
+            node.children.push_back(std::move(child_node));
 
             if (value2 > value)
             {
@@ -74,16 +80,22 @@ class minimax
 
         int value = INF;
         state best_move;
+        auto neighbours = curr.get_neighbours();
 
-        for (auto &[col, child] : curr.get_neighbours())
+        for (int col = 0; col < COLS; ++col)
         {
+            if (neighbours[col].own_color == Cell::empty)
+                continue;
+
+            const state &child = neighbours[col];
+
             tree_node child_node;
             child_node.col = col;
             child_node.level = level + 1;
             child_node.is_max = true;
 
             auto [value2, _] = max_value(child, level + 1, k, max_player, nodes_expanded, child_node);
-            node.children.push_back(child_node);
+            node.children.push_back(std::move(child_node));
 
             if (value2 < value)
             {
