@@ -39,7 +39,9 @@ class minimax
         int value = -INF;
         state best_move;
         auto neighbours = curr.get_neighbours();
-        node.children.reserve(COLS);
+
+        if (should_record(level))
+            node.children.reserve(COLS);
 
         for (int col = 0; col < COLS; ++col)
         {
@@ -54,7 +56,9 @@ class minimax
             child_node.is_max = false;
 
             auto [value2, _] = min_value(child, level + 1, k, max_player, nodes_expanded, child_node);
-            node.children.push_back(std::move(child_node));
+
+            if (should_record(level))
+                node.children.push_back(std::move(child_node));
 
             if (value2 > value)
             {
@@ -83,7 +87,9 @@ class minimax
         int value = INF;
         state best_move;
         auto neighbours = curr.get_neighbours();
-        node.children.reserve(COLS);
+
+        if (should_record(level))
+            node.children.reserve(COLS);
 
         for (int col = 0; col < COLS; ++col)
         {
@@ -98,7 +104,9 @@ class minimax
             child_node.is_max = true;
 
             auto [value2, _] = max_value(child, level + 1, k, max_player, nodes_expanded, child_node);
-            node.children.push_back(std::move(child_node));
+
+            if (should_record(level))
+                node.children.push_back(std::move(child_node));
 
             if (value2 < value)
             {

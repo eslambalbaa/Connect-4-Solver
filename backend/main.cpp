@@ -1,9 +1,9 @@
 #include "alpha_beta.hpp"
 #include "definitions.hpp"
 #include "minimax.hpp"
+#include <charconv>
 #include <chrono>
 #include <cstddef>
-#include <cstdint>
 #include <format>
 #include <iostream>
 #include <string>
@@ -58,6 +58,7 @@ int get_max_levels()
 
 bool input_state(state &out_state)
 {
+    std::array<std::array<Cell, COLS>, ROWS> board{};
     for (int r = 0; r < ROWS; ++r)
     {
         for (int c = 0; c < COLS; ++c)
@@ -67,10 +68,11 @@ bool input_state(state &out_state)
             {
                 return false;
             }
-            out_state.board[r][c] = static_cast<Cell>(cell_val);
+            board[r][c] = static_cast<Cell>(cell_val);
         }
     }
 
+    out_state.from_2d_board(board);
     return true;
 }
 
@@ -98,10 +100,24 @@ std::pair<search_result, double> use_algorithm(const state &current, Algorithm a
     return {result, elapsed_ms};
 }
 
+inline void append_int(std::string &out, int val)
+{
+    char buf[16];
+    auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), val);
+    out.append(buf, ptr - buf);
+}
+
 void serialize_tree(const tree_node &node, std::string &out)
 {
-    out += std::format(R"({{"col":{},"level":{},"value":{},"is_max":{},"pruned":{},"children":[)", node.col, node.level,
-                       node.value, node.is_max, node.pruned);
+    out.append(R"({"col":)", 7);
+    append_int(out, node.col);
+    out.append(R"(,"level":)", 9);
+    append_int(out, node.level);
+    out.append(R"(,"value":)", 9);
+    append_int(out, node.value);
+    out.append(node.is_max ? R"(,"is_max":true)" : R"(,"is_max":false)", node.is_max ? 14 : 15);
+    out.append(node.pruned ? R"(,"pruned":true,"children":[)" : R"(,"pruned":false,"children":[)",
+               node.pruned ? 27 : 28);
 
     for (size_t i = 0; i < node.children.size(); ++i)
     {
@@ -128,7 +144,7 @@ void emit_best_state(const search_result &best, double elapsed_ms)
         {
             if (c > 0)
                 out.push_back(',');
-            out += static_cast<char>('0' + static_cast<int>(best.best_move.board[r][c]));
+            out += static_cast<char>('0' + static_cast<int>(best.best_move.get_cell(r, c)));
         }
         out.push_back(']');
     }

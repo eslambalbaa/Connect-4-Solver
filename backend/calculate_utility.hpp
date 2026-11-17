@@ -2,6 +2,7 @@
 
 #include "definitions.hpp"
 #include <array>
+#include <cstdint>
 #include <optional>
 
 namespace internal_calculation
@@ -11,77 +12,128 @@ constexpr int MAX_UTIL = 100000;
 constexpr int MIN_UTIL = -MAX_UTIL;
 
 constexpr int FOUR_POINT_WEIGHT = 10000;
+constexpr int DOUBLE_THREAT_BONUS = 5000;
 
-using GridBool = std::array<std::array<bool, COLS>, ROWS>;
+constexpr int IMMEDIATE_MIN_THREAT = 65;
+constexpr int IMMEDIATE_MAX_THREAT = 50;
+constexpr int FUTURE_MIN_THREAT = 25;
+constexpr int FUTURE_MAX_THREAT = 20;
 
-struct ThreatMap
+constexpr int MIN_OPEN_TWO_HORIZ_DIAG = 5;
+constexpr int MAX_OPEN_TWO_HORIZ_DIAG = 4;
+constexpr int MIN_OPEN_TWO_VERT = 1;
+constexpr int MAX_OPEN_TWO_VERT = 1;
+
+constexpr int POS_LINE_WEIGHT = 1;
+
+consteval int count_winning_lines_through(int r, int c)
 {
-    GridBool max{};
-    GridBool min{};
-};
+    constexpr std::array<std::pair<int, int>, 4> dirs = {{{0, 1}, {1, 0}, {1, 1}, {1, -1}}};
+    int lines = 0;
 
-// favour the middle as it has more moves
-constexpr std::array<std::array<int, COLS>, ROWS> POSITION_WEIGHTS = {{{3, 4, 5, 7, 5, 4, 3},
-                                                                       {4, 6, 8, 10, 8, 6, 4},
-                                                                       {5, 8, 11, 13, 11, 8, 5},
-                                                                       {5, 8, 11, 13, 11, 8, 5},
-                                                                       {4, 6, 8, 10, 8, 6, 4},
-                                                                       {3, 4, 5, 7, 5, 4, 3}}};
+    for (const auto &[dr, dc] : dirs)
+    {
+        for (int offset = 0; offset < MAXCONNECTED; ++offset)
+        {
+            const int start_r = r - offset * dr;
+            const int start_c = c - offset * dc;
+            const int end_r = start_r + (MAXCONNECTED - 1) * dr;
+            const int end_c = start_c + (MAXCONNECTED - 1) * dc;
 
-COMPUTES Cell min_player_color(Cell max_player)
-{
-    return (max_player == Cell::red) ? Cell::yellow : Cell::red;
+            if (start_r >= 0 and start_r < ROWS and start_c >= 0 and start_c < COLS and end_r >= 0 and end_r < ROWS and
+                end_c >= 0 and end_c < COLS)
+            {
+                ++lines;
+            }
+        }
+    }
+    return lines * POS_LINE_WEIGHT;
 }
 
-COMPUTES int positional_score(const state &curr, Cell max_player)
+struct WeightBucket
 {
-    const Cell min_player = min_player_color(max_player);
-    int score = 0;
+    int weight = 0;
+    uint64_t mask = 0;
+};
+
+struct WeightTable
+{
+    std::array<WeightBucket, ROWS * COLS> buckets{};
+    int count = 0;
+};
+
+consteval WeightTable build_weight_buckets()
+{
+    WeightTable table{};
 
     for (int r = 0; r < ROWS; ++r)
     {
         for (int c = 0; c < COLS; ++c)
         {
-            if (curr.board[r][c] == max_player)
-                score += POSITION_WEIGHTS[r][c];
-            else if (curr.board[r][c] == min_player)
-                score -= POSITION_WEIGHTS[r][c];
+            const int w = count_winning_lines_through(r, c);
+            if (w == 0)
+                continue;
+
+            int idx = 0;
+            while (idx < table.count and table.buckets[idx].weight != w)
+                ++idx;
+
+            if (idx == table.count)
+                table.buckets[table.count++].weight = w;
+
+            table.buckets[idx].mask |= BIT_AT(r, c);
         }
+    }
+
+    return table;
+}
+
+constexpr auto WEIGHT_TABLE = build_weight_buckets();
+
+#define POPCOUNT(bb) std::popcount(static_cast<uint64_t>(bb))
+#define EMPTY_CELLS(mask) ((~(mask)) & FULL_BOARD_MASK)
+#define OPPONENT_POS(pos, mask) ((pos) ^ (mask))
+#define COL_SLICE(bb, c) (((bb) >> ((c) * BITS_PER_COL)) & PLAYABLE_COL_BITS)
+#define ROW_BIT(bit) (1ULL << (bit))
+
+#define LINE_4(pos, dir) (((pos) & ((pos) >> (dir))) & (((pos) & ((pos) >> (dir))) >> (2 * (dir))))
+#define COUNT_FOURS(pos)                                                                                               \
+    (POPCOUNT(LINE_4((pos), DIR_HORIZ)) + POPCOUNT(LINE_4((pos), DIR_VERT)) + POPCOUNT(LINE_4((pos), DIR_DIAG_UP)) +   \
+     POPCOUNT(LINE_4((pos), DIR_DIAG_DOWN)))
+
+COMPUTES int player_pos_score(uint64_t pos)
+{
+    int score = 0;
+    for (int i = 0; i < WEIGHT_TABLE.count; ++i)
+    {
+        // weighted sums of the peices we have
+        score += WEIGHT_TABLE.buckets[i].weight * POPCOUNT(pos & WEIGHT_TABLE.buckets[i].mask);
     }
 
     return score;
 }
 
-COMPUTES int drop_distance(const state &curr, int r, int c)
+COMPUTES int positional_score(uint64_t max_pos, uint64_t min_pos)
 {
-    int empty_below = 0;
-    for (int row = r + 1; row < ROWS and curr.board[row][c] == Cell::empty; ++row)
-    {
-        empty_below++;
-    }
-    return empty_below;
+    return player_pos_score(max_pos) - player_pos_score(min_pos);
 }
 
-COMPUTES std::optional<int> terminal_score(const state &curr, Cell max_player, int level)
+COMPUTES std::optional<int> terminal_score(const state &curr, uint64_t max_pos, uint64_t min_pos, int level)
 {
 
     // first four game ends in four in a row
     if (curr.game_style == GameStyle::first_four)
     {
-        for (int r = 0; r < ROWS; ++r)
-        {
-            for (int c = 0; c < COLS; ++c)
-            {
-                if (curr.four_connected(r, c))
-                    return (curr.board[r][c] == max_player) ? MAX_UTIL - level : MIN_UTIL + level;
-            }
-        }
+        if (HAS_WON(max_pos))
+            return MAX_UTIL - level;
+        if (HAS_WON(min_pos))
+            return MIN_UTIL + level;
     }
 
     if (curr.is_board_full())
     {
-        const Cell min_player = min_player_color(max_player);
-        const int diff = curr.count_fours(max_player) - curr.count_fours(min_player);
+
+        const int diff = COUNT_FOURS(max_pos) - COUNT_FOURS(min_pos);
         if (diff > 0)
             return MAX_UTIL + diff * FOUR_POINT_WEIGHT - level;
         if (diff < 0)
@@ -93,41 +145,102 @@ COMPUTES std::optional<int> terminal_score(const state &curr, Cell max_player, i
     return std::nullopt;
 }
 
-COMPUTES int connected_fours_score(const state &curr, Cell max_player)
+COMPUTES int connected_fours_score(const state &curr, uint64_t max_pos, uint64_t min_pos)
 {
     if (curr.game_style != GameStyle::full_board)
         return 0;
 
-    const Cell min_player = min_player_color(max_player);
-    return (curr.count_fours(max_player) - curr.count_fours(min_player)) * FOUR_POINT_WEIGHT;
+    return (COUNT_FOURS(max_pos) - COUNT_FOURS(min_pos)) * FOUR_POINT_WEIGHT;
 }
 
-COMPUTES int score_threats(const state &curr, const ThreatMap &threats)
+COMPUTES uint64_t threat_cells_dir(uint64_t p, uint64_t empty, int d)
+{
+    const uint64_t p1 = p >> d;
+    const uint64_t p2 = p >> (2 * d);
+    const uint64_t p3 = p >> (3 * d);
+
+    const uint64_t e0 = empty;
+    const uint64_t e1 = empty >> d;
+    const uint64_t e2 = empty >> (2 * d);
+    const uint64_t e3 = empty >> (3 * d);
+
+    const uint64_t slot0_empty = e0 & p1 & p2 & p3;
+    const uint64_t slot1_empty = (p & e1 & p2 & p3) << d;
+    const uint64_t slot2_empty = (p & p1 & e2 & p3) << (2 * d);
+    const uint64_t slot3_empty = (p & p1 & p2 & e3) << (3 * d);
+
+    return slot0_empty | slot1_empty | slot2_empty | slot3_empty;
+}
+
+COMPUTES uint64_t all_threat_cells(uint64_t p, uint64_t empty)
+{
+    return threat_cells_dir(p, empty, DIR_HORIZ) | threat_cells_dir(p, empty, DIR_VERT) |
+           threat_cells_dir(p, empty, DIR_DIAG_UP) | threat_cells_dir(p, empty, DIR_DIAG_DOWN);
+}
+
+COMPUTES int count_twos_dir(uint64_t p, uint64_t empty, int d)
+{
+    const uint64_t p1 = p >> d, p2 = p >> (2 * d), p3 = p >> (3 * d);
+    const uint64_t e0 = empty, e1 = empty >> d, e2 = empty >> (2 * d), e3 = empty >> (3 * d);
+
+    return POPCOUNT(p & p1 & e2 & e3) + POPCOUNT(p & e1 & p2 & e3) + POPCOUNT(p & e1 & e2 & p3) +
+           POPCOUNT(e0 & p1 & p2 & e3) + POPCOUNT(e0 & p1 & e2 & p3) + POPCOUNT(e0 & e1 & p2 & p3);
+}
+
+COMPUTES int twos_score(uint64_t max_pos, uint64_t min_pos, uint64_t empty)
+{
+    const int max_non_vert = count_twos_dir(max_pos, empty, DIR_HORIZ) + count_twos_dir(max_pos, empty, DIR_DIAG_UP) +
+                             count_twos_dir(max_pos, empty, DIR_DIAG_DOWN);
+    const int max_vert = count_twos_dir(max_pos, empty, DIR_VERT);
+
+    const int min_non_vert = count_twos_dir(min_pos, empty, DIR_HORIZ) + count_twos_dir(min_pos, empty, DIR_DIAG_UP) +
+                             count_twos_dir(min_pos, empty, DIR_DIAG_DOWN);
+    const int min_vert = count_twos_dir(min_pos, empty, DIR_VERT);
+
+    return (max_non_vert * MAX_OPEN_TWO_HORIZ_DIAG + max_vert * MAX_OPEN_TWO_VERT) -
+           (min_non_vert * MIN_OPEN_TWO_HORIZ_DIAG + min_vert * MIN_OPEN_TWO_VERT);
+}
+COMPUTES int score_threats(uint64_t mask, uint64_t max_threats, uint64_t min_threats)
 {
     int score = 0;
 
     for (int c = 0; c < COLS; ++c)
     {
+        const uint64_t col_bits = COL_SLICE(mask, c);
+        const uint64_t max_col = COL_SLICE(max_threats, c);
+        const uint64_t min_col = COL_SLICE(min_threats, c);
+
+        // both are empty
+        if ((max_col | min_col) == 0)
+            continue;
+
+        const int height = std::countr_one(col_bits);
+
         bool max_blocked_from_below = false;
         bool min_blocked_from_below = false;
 
-        for (int r = ROWS - 1; r >= 0; --r)
+        for (int bit = 0; bit < ROWS; ++bit)
         {
-            if (r > 0 and threats.max[r][c] == true and threats.max[r - 1][c] == true)
-                score += 5000;
-            if (r > 0 and threats.min[r][c] == true and threats.min[r - 1][c] == true)
-                score -= 5000;
+            const bool is_max_t = (max_col & ROW_BIT(bit)) != 0;
+            const bool is_min_t = (min_col & ROW_BIT(bit)) != 0;
 
-            if (threats.max[r][c] and !max_blocked_from_below)
+            if (bit < ROWS - 1)
             {
-                // if I reach it right away it takes more
-                score += (drop_distance(curr, r, c) == 0) ? 50 : 20;
+                if (is_max_t and ((max_col & ROW_BIT(bit + 1)) != 0))
+                    score += DOUBLE_THREAT_BONUS;
+                if (is_min_t and ((min_col & ROW_BIT(bit + 1)) != 0))
+                    score -= DOUBLE_THREAT_BONUS;
+            }
+
+            if (is_max_t and !max_blocked_from_below)
+            {
+                score += (bit == height) ? IMMEDIATE_MAX_THREAT : FUTURE_MAX_THREAT;
                 min_blocked_from_below = true;
             }
 
-            if (threats.min[r][c] && !min_blocked_from_below)
+            if (is_min_t and !min_blocked_from_below)
             {
-                score -= (drop_distance(curr, r, c) == 0) ? 65 : 25;
+                score -= (bit == height) ? IMMEDIATE_MIN_THREAT : FUTURE_MIN_THREAT;
                 max_blocked_from_below = true;
             }
         }
@@ -136,96 +249,25 @@ COMPUTES int score_threats(const state &curr, const ThreatMap &threats)
     return score;
 }
 
-COMPUTES int evaluate_window(const state &curr, int r, int c, int dr, int dc, Cell max_player, ThreatMap &threats)
-{
-    const Cell min_player = min_player_color(max_player);
-    int max_cnt = 0;
-    int min_cnt = 0;
-    int empty_r = -1;
-    int empty_c = -1;
-
-    for (int i = 0; i < MAXCONNECTED; ++i)
-    {
-        const int nr = r + i * dr;
-        const int nc = c + i * dc;
-        const Cell cell = curr.board[nr][nc];
-
-        if (cell == max_player)
-            ++max_cnt;
-        else if (cell == min_player)
-            ++min_cnt;
-        else
-        {
-            empty_r = nr;
-            empty_c = nc;
-        }
-    }
-
-    // blocked window
-    if (max_cnt > 0 and min_cnt > 0)
-        return 0;
-
-    if (max_cnt == 3)
-    {
-        threats.max[empty_r][empty_c] = true;
-        return 0;
-    }
-    if (min_cnt == 3)
-    {
-        threats.min[empty_r][empty_c] = true;
-        return 0;
-    }
-
-    const bool is_vertical = (dc == 0);
-    if (max_cnt == 2)
-        return is_vertical ? 1 : 4;
-    if (min_cnt == 2)
-        return is_vertical ? -1 : -5;
-
-    return 0;
-}
-
-COMPUTES int scan_all_windows(const state &curr, Cell max_player, ThreatMap &threats)
-{
-    int score = 0;
-
-    // east
-    for (int r = 0; r < ROWS; ++r)
-        for (int c = 0; c <= COLS - MAXCONNECTED; ++c)
-            score += evaluate_window(curr, r, c, 0, 1, max_player, threats);
-
-    // south
-    for (int r = 0; r <= ROWS - MAXCONNECTED; ++r)
-        for (int c = 0; c < COLS; ++c)
-            score += evaluate_window(curr, r, c, 1, 0, max_player, threats);
-
-    // diagonal  south east
-    for (int r = 0; r <= ROWS - MAXCONNECTED; ++r)
-        for (int c = 0; c <= COLS - MAXCONNECTED; ++c)
-            score += evaluate_window(curr, r, c, 1, 1, max_player, threats);
-
-    // doagonal north east
-    for (int r = MAXCONNECTED - 1; r < ROWS; ++r)
-        for (int c = 0; c <= COLS - MAXCONNECTED; ++c)
-            score += evaluate_window(curr, r, c, -1, 1, max_player, threats);
-
-    return score;
-}
-
 COMPUTES static int evaluate(const state &curr, Cell max_player, int level)
 {
-    if (auto win = terminal_score(curr, max_player, level))
+    const uint64_t max_pos = curr.pos_of(max_player);
+    const uint64_t min_pos = OPPONENT_POS(max_pos, curr.mask);
+
+    if (auto win = terminal_score(curr, max_pos, min_pos, level))
     {
         return *win;
     }
 
-    ThreatMap threats;
-    int score = 0;
+    const uint64_t empty = EMPTY_CELLS(curr.mask);
+    const uint64_t max_threats = all_threat_cells(max_pos, empty);
+    const uint64_t min_threats = all_threat_cells(min_pos, empty);
 
-    score += connected_fours_score(curr, max_player);
-    score += scan_all_windows(curr, max_player, threats);
-    score += score_threats(curr, threats);
-    score += positional_score(curr, max_player);
+    int score = 0;
+    score += connected_fours_score(curr, max_pos, min_pos);
+    score += twos_score(max_pos, min_pos, empty);
+    score += score_threats(curr.mask, max_threats, min_threats);
+    score += positional_score(max_pos, min_pos);
 
     return score;
 }

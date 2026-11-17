@@ -1,16 +1,58 @@
 #pragma once
 
 #include <array>
+#include <bit>
 #include <cstdint>
 #include <limits>
 #include <utility>
 #include <vector>
+
 #define COMPUTES constexpr
 constexpr int INF = std::numeric_limits<int>::max();
 
 constexpr int ROWS = 6;
 constexpr int COLS = 7;
 constexpr int MAXCONNECTED = 4;
+
+// one extra bit as a guard
+constexpr int BITS_PER_COL = ROWS + 1;
+constexpr uint64_t PLAYABLE_COL_BITS = (1ULL << ROWS) - 1;
+
+constexpr int DIR_VERT = 1;
+constexpr int DIR_HORIZ = BITS_PER_COL;
+constexpr int DIR_DIAG_DOWN = BITS_PER_COL - 1; // '\'
+constexpr int DIR_DIAG_UP = BITS_PER_COL + 1;   // '/'
+
+consteval uint64_t build_full_board_mask()
+{
+    uint64_t mask = 0;
+    for (int c = 0; c < COLS; ++c)
+    {
+        mask |= (PLAYABLE_COL_BITS << (c * BITS_PER_COL));
+    }
+    return mask;
+}
+
+constexpr uint64_t FULL_BOARD_MASK = build_full_board_mask();
+
+#define BIT_AT(r, c) (1ULL << ((c) * BITS_PER_COL + (ROWS - 1 - (r))))
+
+#define COL_BOTTOM(c) (1ULL << ((c) * BITS_PER_COL))
+#define COL_TOP(c) (1ULL << ((c) * BITS_PER_COL + (ROWS - 1)))
+#define OPPONENT_POS(pos, mask) ((pos) ^ (mask))
+#define CAN_PLAY(mask, c) (((mask) & COL_TOP(c)) == 0)
+#define DROP_PIECE(mask, c) ((mask) | ((mask) + COL_BOTTOM(c)))
+#define IS_BOARD_FULL(mask) ((mask) == FULL_BOARD_MASK)
+#define POPCOUNT(bb) std::popcount(static_cast<uint64_t>(bb))
+
+#define LINE_4(pos, dir) (((pos) & ((pos) >> (dir))) & (((pos) & ((pos) >> (dir))) >> (2 * (dir))))
+#define HAS_LINE_4(pos, dir) (LINE_4((pos), (dir)) != 0)
+#define HAS_WON(pos)                                                                                                   \
+    (HAS_LINE_4((pos), DIR_HORIZ) or HAS_LINE_4((pos), DIR_VERT) or HAS_LINE_4((pos), DIR_DIAG_UP) or                  \
+     HAS_LINE_4((pos), DIR_DIAG_DOWN))
+#define COUNT_FOURS(pos)                                                                                               \
+    (POPCOUNT(LINE_4((pos), DIR_HORIZ)) + POPCOUNT(LINE_4((pos), DIR_VERT)) + POPCOUNT(LINE_4((pos), DIR_DIAG_UP)) +   \
+     POPCOUNT(LINE_4((pos), DIR_DIAG_DOWN)))
 
 enum class GameStyle
 {
@@ -28,7 +70,9 @@ enum class Cell : uint8_t
 class state
 {
   public:
-    std::array<std::array<Cell, COLS>, ROWS> board{};
+    // all occupied
+    uint64_t mask{0};
+    uint64_t current_position{0}; // bits occupied by us
     Cell own_color{Cell::empty};
     GameStyle game_style{GameStyle::full_board};
 
@@ -38,7 +82,7 @@ class state
 
         for (int col = 0; col < COLS; ++col)
         {
-            if (board[0][col] == Cell::empty)
+            if (CAN_PLAY(mask, col))
             {
                 neighbours[col] = apply_move(col);
             }
@@ -49,115 +93,37 @@ class state
 
     COMPUTES state apply_move(int col) const
     {
-        state child = *this;
+        state child;
+        child.current_position = OPPONENT_POS(current_position, mask);
+        child.mask = DROP_PIECE(mask, col);
         child.own_color = (own_color == Cell::red) ? Cell::yellow : Cell::red;
-
-        for (int i = 1; i < ROWS; ++i)
-        {
-            if (board[i][col] != Cell::empty)
-            {
-                child.board[i - 1][col] = own_color;
-                return child;
-            }
-        }
-
-        // last row
-        child.board[ROWS - 1][col] = own_color;
+        child.game_style = game_style;
         return child;
     }
 
-    COMPUTES int count_consecutive(int r, int c, int dr, int dc, Cell target) const
-    {
-        int count = 0;
-        int curr_r = r + dr;
-        int curr_c = c + dc;
-
-        while (curr_r >= 0 and curr_r < ROWS and curr_c >= 0 and curr_c < COLS and board[curr_r][curr_c] == target)
-        {
-            ++count;
-            curr_r += dr;
-            curr_c += dc;
-        }
-        return count;
-    }
-
-    COMPUTES bool four_connected(int r, int c) const
-    {
-        const Cell target = board[r][c];
-        if (target == Cell::empty)
-        {
-            return false;
-        }
-
-        constexpr std::array<std::pair<int, int>, 4> directions = {{{0, 1}, {1, 0}, {1, 1}, {1, -1}}};
-
-        for (const auto &[dr, dc] : directions)
-        {
-            const int forward = count_consecutive(r, c, dr, dc, target);
-
-            if (1 + forward >= MAXCONNECTED)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    COMPUTES int count_fours(Cell target) const
+    COMPUTES uint64_t pos_of(Cell target) const
     {
         if (target == Cell::empty)
             return 0;
 
-        constexpr std::array<std::pair<int, int>, 4> directions = {{{0, 1}, {1, 0}, {1, 1}, {1, -1}}};
-        int total = 0;
+        return (target == own_color) ? current_position : OPPONENT_POS(current_position, mask);
+    }
 
-        for (int r = 0; r < ROWS; ++r)
-        {
-            for (int c = 0; c < COLS; ++c)
-            {
-                if (board[r][c] != target)
-                    continue;
-
-                for (const auto &[dr, dc] : directions)
-                {
-                    if (1 + count_consecutive(r, c, dr, dc, target) >= MAXCONNECTED)
-                    {
-                        ++total;
-                    }
-                }
-            }
-        }
-
-        return total;
+    COMPUTES int count_fours(Cell target) const
+    {
+        // get the owner's position mask
+        const uint64_t pos = pos_of(target);
+        return pos == 0 ? 0 : COUNT_FOURS(pos);
     }
 
     COMPUTES bool is_board_full() const
     {
-        for (int c = 0; c < COLS; ++c)
-        {
-            if (board[0][c] == Cell::empty)
-            {
-                return false;
-            }
-        }
-        return true;
+        return IS_BOARD_FULL(mask);
     }
 
     COMPUTES bool has_any_four() const
     {
-        for (int r = 0; r < ROWS; ++r)
-        {
-            for (int c = 0; c < COLS; ++c)
-            {
-                if (four_connected(r, c))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return HAS_WON(current_position) or HAS_WON(OPPONENT_POS(current_position, mask));
     }
 
     COMPUTES bool is_terminal() const
@@ -167,6 +133,35 @@ class state
             return true;
 
         return is_board_full();
+    }
+
+    COMPUTES Cell get_cell(int r, int c) const
+    {
+        const uint64_t cell_bit = BIT_AT(r, c);
+        if ((mask & cell_bit) == 0)
+            return Cell::empty;
+        if ((current_position & cell_bit) != 0)
+            return own_color;
+        return (own_color == Cell::red) ? Cell::yellow : Cell::red;
+    }
+
+    COMPUTES void from_2d_board(const std::array<std::array<Cell, COLS>, ROWS> &board)
+    {
+        mask = 0;
+        current_position = 0;
+        for (int r = 0; r < ROWS; ++r)
+        {
+            for (int c = 0; c < COLS; ++c)
+            {
+                if (board[r][c] == Cell::empty)
+                    continue;
+
+                const uint64_t cell_bit = BIT_AT(r, c);
+                mask |= cell_bit;
+                if (board[r][c] == own_color)
+                    current_position |= cell_bit;
+            }
+        }
     }
 
     COMPUTES int utility(Cell max_player, int level) const;
@@ -192,6 +187,14 @@ struct search_result
     uint64_t nodes_expanded = 0; // could be massive
     tree_node root;
 };
+
+// set for -1 if we need unlimited depth
+constexpr int MAX_RECORD_DEPTH = 4;
+
+inline bool should_record(int level)
+{
+    return MAX_RECORD_DEPTH < 0 || level < MAX_RECORD_DEPTH;
+}
 
 // included here cause utility is defined at the end of it
 #include "calculate_utility.hpp"

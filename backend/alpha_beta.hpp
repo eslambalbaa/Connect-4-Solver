@@ -42,7 +42,9 @@ class alpha_beta
         int value = -INF;
         state best_move;
         auto neighbours = curr.get_neighbours();
-        node.children.reserve(COLS);
+
+        if (should_record(level))
+            node.children.reserve(COLS);
 
         for (int i = 0; i < COLS; ++i)
         {
@@ -58,7 +60,9 @@ class alpha_beta
             child_node.is_max = false;
 
             auto [value2, _] = min_value(child, alpha, beta, level + 1, k, max_player, nodes_expanded, child_node);
-            node.children.push_back(std::move(child_node));
+
+            if (should_record(level))
+                node.children.push_back(std::move(child_node));
 
             if (value2 > value)
             {
@@ -69,21 +73,24 @@ class alpha_beta
 
             if (value >= beta)
             {
-                for (int j = i + 1; j < COLS; ++j)
+                if (should_record(level))
                 {
-                    int col_j = COL_ORDER[j];
-                    if (neighbours[col_j].own_color == Cell::empty)
-                        continue;
+                    for (int j = i + 1; j < COLS; ++j)
+                    {
+                        int col_j = COL_ORDER[j];
+                        if (neighbours[col_j].own_color == Cell::empty)
+                            continue;
 
-                    tree_node pruned_node;
-                    pruned_node.col = col_j;
-                    pruned_node.level = level + 1;
-                    pruned_node.is_max = false;
-                    pruned_node.pruned = true;
-                    node.children.push_back(std::move(pruned_node));
+                        tree_node pruned_node;
+                        pruned_node.col = col_j;
+                        pruned_node.level = level + 1;
+                        pruned_node.is_max = false;
+                        pruned_node.pruned = true;
+                        node.children.push_back(std::move(pruned_node));
+                    }
+                    std::ranges::sort(node.children, {}, &tree_node::col);
                 }
 
-                std::ranges::sort(node.children, {}, &tree_node::col);
                 node.value = value;
                 return {value, best_move};
             }
@@ -110,7 +117,9 @@ class alpha_beta
         int value = INF;
         state best_move;
         auto neighbours = curr.get_neighbours();
-        node.children.reserve(COLS);
+
+        if (should_record(level))
+            node.children.reserve(COLS);
 
         for (int i = 0; i < COLS; ++i)
         {
@@ -126,7 +135,9 @@ class alpha_beta
             child_node.is_max = true;
 
             auto [value2, _] = max_value(child, alpha, beta, level + 1, k, max_player, nodes_expanded, child_node);
-            node.children.push_back(std::move(child_node));
+
+            if (should_record(level))
+                node.children.push_back(std::move(child_node));
 
             if (value2 < value)
             {
@@ -137,21 +148,24 @@ class alpha_beta
 
             if (value <= alpha)
             {
-                for (int j = i + 1; j < COLS; ++j)
+                if (should_record(level))
                 {
-                    int col_j = COL_ORDER[j];
-                    if (neighbours[col_j].own_color == Cell::empty)
-                        continue;
+                    for (int j = i + 1; j < COLS; ++j)
+                    {
+                        int col_j = COL_ORDER[j];
+                        if (neighbours[col_j].own_color == Cell::empty)
+                            continue;
 
-                    tree_node pruned_node;
-                    pruned_node.col = col_j;
-                    pruned_node.level = level + 1;
-                    pruned_node.is_max = true;
-                    pruned_node.pruned = true;
-                    node.children.push_back(std::move(pruned_node));
+                        tree_node pruned_node;
+                        pruned_node.col = col_j;
+                        pruned_node.level = level + 1;
+                        pruned_node.is_max = true;
+                        pruned_node.pruned = true;
+                        node.children.push_back(std::move(pruned_node));
+                    }
+                    std::ranges::sort(node.children, {}, &tree_node::col);
                 }
 
-                std::ranges::sort(node.children, {}, &tree_node::col);
                 node.value = value;
                 return {value, best_move};
             }
