@@ -2,6 +2,7 @@
 
 #include "definitions.hpp"
 #include <cstdint>
+#include <utility>
 
 class minimax
 {
@@ -38,6 +39,7 @@ class minimax
         int value = -INF;
         state best_move;
         auto neighbours = curr.get_neighbours();
+        node.children.reserve(COLS);
 
         for (int col = 0; col < COLS; ++col)
         {
@@ -81,6 +83,7 @@ class minimax
         int value = INF;
         state best_move;
         auto neighbours = curr.get_neighbours();
+        node.children.reserve(COLS);
 
         for (int col = 0; col < COLS; ++col)
         {

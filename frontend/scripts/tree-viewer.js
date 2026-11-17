@@ -4,18 +4,10 @@ function formatValue(val) {
   return n > 0 ? `+${n}` : `${n}`;
 }
 
-function assignNodeKeys(node, pathKey = 'root') {
-  if (!node) return;
-  node._key = pathKey;
-  if (!Array.isArray(node.children)) return;
-  for (let i = 0; i < node.children.length; i++) {
-    const child = node.children[i];
-    assignNodeKeys(child, `${pathKey}-${child.col ?? i}-${i}`);
-  }
-}
-
 export class TreeViewer {
-  constructor() {
+  constructor({ onWorkerAction = null } = {}) {
+    this.onWorkerAction = onWorkerAction;
+
     this.telemetryEl = document.getElementById('aiTelemetry');
     this.statValueEl = document.getElementById('aiStatValue');
     this.statTimeEl = document.getElementById('aiStatTime');
@@ -39,9 +31,11 @@ export class TreeViewer {
     this.tracePaneEl = document.getElementById('treeTracePane');
     this.tracePreEl = document.getElementById('treeTracePre');
 
-    this.lastMoveData = null;
+    this.pendingMeta = null;
+    this.lastSnapshot = null;
     this.activeTab = 'visual';
     this.selectedPathCols = [];
+    this.cachedTextTrace4 = null;
     this.initEvents();
   }
 
@@ -63,15 +57,13 @@ export class TreeViewer {
     });
 
     this.btnExpandAllEl?.addEventListener('click', () => {
-      if (!this.lastMoveData?.tree) return;
-      this.selectDefaultPath(this.lastMoveData.maxLevels);
-      this.renderPanelContent();
+      if (!this.lastSnapshot) return;
+      this.onWorkerAction?.({ type: 'expandBest', moveId: this.lastSnapshot.moveId });
     });
 
     this.btnCollapseAllEl?.addEventListener('click', () => {
-      if (!this.lastMoveData?.tree) return;
-      this.selectedPathCols = [this.lastMoveData.chosenCol];
-      this.renderPanelContent();
+      if (!this.lastSnapshot) return;
+      this.onWorkerAction?.({ type: 'collapseTop', moveId: this.lastSnapshot.moveId });
     });
 
     window.addEventListener('resize', () => {
@@ -100,6 +92,9 @@ export class TreeViewer {
     const span = this.btnShowTreeEl?.querySelector('span');
     if (span) span.textContent = 'HIDE TREE';
     this.renderPanelContent();
+    if (this.activeTab === 'text' && this.lastSnapshot && !this.cachedTextTrace4) {
+      this.onWorkerAction?.({ type: 'getTextTrace', moveId: this.lastSnapshot.moveId, maxDepth: 4 });
+    }
     window.requestAnimationFrame(() => {
       this.panelEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
@@ -123,8 +118,10 @@ export class TreeViewer {
   }
 
   resetTelemetry() {
-    this.lastMoveData = null;
+    this.pendingMeta = null;
+    this.lastSnapshot = null;
     this.selectedPathCols = [];
+    this.cachedTextTrace4 = null;
     if (this.statValueEl) this.statValueEl.textContent = '--';
     if (this.statTimeEl) this.statTimeEl.textContent = '--';
     if (this.statNodesEl) this.statNodesEl.textContent = '--';
@@ -145,25 +142,20 @@ export class TreeViewer {
     window.setTimeout(() => el.classList.remove('bump'), 320);
   }
 
-  recordMoveResult({
-    tree,
+  setMoveMetrics({
     chosenCol,
     cpuPlayer,
     algorithm,
     gameStyle,
     maxLevels,
     nodesExpanded,
-    timeMs
+    timeMs,
+    rootValue
   }) {
-    if (!tree) return;
-    assignNodeKeys(tree, 'root');
-
-    const rootValue = tree.value ?? 0;
     const totalNodes = Number(nodesExpanded ?? 0);
     const elapsedMs = Number(timeMs ?? 0);
 
-    this.lastMoveData = {
-      tree,
+    this.pendingMeta = {
       chosenCol,
       cpuPlayer,
       algorithm,
@@ -173,6 +165,8 @@ export class TreeViewer {
       timeMs: elapsedMs,
       rootValue
     };
+    this.lastSnapshot = null;
+    this.cachedTextTrace4 = null;
 
     if (this.statValueEl) {
       this.statValueEl.textContent = formatValue(rootValue);
@@ -187,83 +181,46 @@ export class TreeViewer {
       this.bumpElement(this.statNodesEl);
     }
 
-    this.selectDefaultPath(maxLevels);
-    this.logTreeToConsole();
-
     if (this.isOpen()) {
       this.renderPanelContent();
     }
   }
 
-  selectDefaultPath(maxDepth) {
-    if (!this.lastMoveData?.tree) return;
-    const { tree, chosenCol } = this.lastMoveData;
-    this.selectedPathCols = [];
+  applyTreeSnapshot(snapshot) {
+    if (!snapshot || !snapshot.meta) return;
+    this.pendingMeta = null;
+    this.lastSnapshot = snapshot;
+    this.selectedPathCols = snapshot.selectedPathCols || [];
+    this.cachedTextTrace4 = null;
 
-    let curr = tree;
-    let depth = 0;
-    while (curr && Array.isArray(curr.children) && curr.children.length > 0 && depth < maxDepth) {
-      let nextChild = null;
-      if (depth === 0 && chosenCol >= 0) {
-        nextChild = curr.children.find((ch) => Number(ch.col) === chosenCol);
+    if (snapshot.textTrace3) {
+      console.log(snapshot.textTrace3);
+    }
+
+    if (this.isOpen()) {
+      this.renderPanelContent();
+      if (this.activeTab === 'text') {
+        this.onWorkerAction?.({ type: 'getTextTrace', moveId: snapshot.moveId, maxDepth: 4 });
       }
-      if (!nextChild) {
-        nextChild = curr.children.find((ch) => !ch.pruned && ch.value === curr.value)
-          || curr.children.find((ch) => !ch.pruned)
-          || curr.children[0];
-      }
-      if (!nextChild) break;
-      this.selectedPathCols.push(Number(nextChild.col));
-      curr = nextChild;
-      depth++;
     }
   }
 
-  buildTextTree(maxDepth = 3) {
-    if (!this.lastMoveData?.tree) {
-      return 'Make a move against the computer to generate the Minimax tree.';
+  applyVisualData(data) {
+    if (!data || !this.lastSnapshot || data.moveId !== this.lastSnapshot.moveId) return;
+    this.selectedPathCols = data.selectedPathCols || [];
+    this.lastSnapshot.selectedPathCols = this.selectedPathCols;
+    this.lastSnapshot.visualLevels = data.visualLevels || [];
+    if (this.isOpen()) {
+      this.renderPanelContent();
     }
-    const { tree, chosenCol, algorithm, maxLevels, nodesExpanded, timeMs, rootValue } = this.lastMoveData;
-    const algoName = algorithm === 1 ? 'MINIMAX + ALPHA-BETA' : 'MINIMAX';
-
-    const lines = [];
-    lines.push(`${algoName} | K = ${maxLevels} | CHOSEN COL = ${chosenCol + 1} | VALUE = ${formatValue(rootValue)} | NODES = ${nodesExpanded} | TIME = ${timeMs.toFixed(3)} ms`);
-    lines.push('-------------------------------------------------------------------------');
-
-    const walk = (node, prefix, isLast, isRoot) => {
-      const role = node.is_max ? 'MAX' : 'MIN';
-      const lvl = Number(node.level ?? 0);
-      if (isRoot) {
-        lines.push(`[L${lvl} ${role} ROOT] value = ${formatValue(node.value)}`);
-      } else {
-        const branch = isLast ? '`-- ' : '|-- ';
-        const colText = `Col ${Number(node.col) + 1}`;
-        const prunedText = node.pruned ? ' [PRUNED]' : '';
-        const chosenText = lvl === 1 && Number(node.col) === chosenCol ? ' [CHOSEN]' : '';
-        lines.push(`${prefix}${branch}[L${lvl} ${role}] ${colText} | value = ${formatValue(node.value)}${prunedText}${chosenText}`);
-      }
-
-      const children = Array.isArray(node.children) ? node.children : [];
-      if (children.length === 0) return;
-
-      const nextPrefix = prefix + (isRoot ? '' : isLast ? '    ' : '|   ');
-      if (lvl >= maxDepth) {
-        lines.push(`${nextPrefix}\`-- (${children.length} child nodes up to L${maxLevels})`);
-        return;
-      }
-
-      for (let i = 0; i < children.length; i++) {
-        walk(children[i], nextPrefix, i === children.length - 1, false);
-      }
-    };
-
-    walk(tree, '', true, true);
-    return lines.join('\n');
   }
 
-  logTreeToConsole() {
-    if (!this.lastMoveData?.tree) return;
-    console.log(this.buildTextTree(3));
+  applyTextTrace(data) {
+    if (!data || !this.lastSnapshot || data.moveId !== this.lastSnapshot.moveId) return;
+    this.cachedTextTrace4 = data.text || '';
+    if (this.isOpen() && this.activeTab === 'text' && this.tracePreEl) {
+      this.tracePreEl.textContent = this.cachedTextTrace4;
+    }
   }
 
   setTab(tab) {
@@ -273,57 +230,67 @@ export class TreeViewer {
     this.visualPaneEl?.classList.toggle('hidden', tab !== 'visual');
     this.tracePaneEl?.classList.toggle('hidden', tab !== 'text');
     this.renderPanelContent();
+    if (tab === 'text' && this.lastSnapshot && !this.cachedTextTrace4) {
+      this.onWorkerAction?.({ type: 'getTextTrace', moveId: this.lastSnapshot.moveId, maxDepth: 4 });
+    }
+  }
+
+  renderMetaSummary(meta) {
+    if (!this.metaSummaryEl || !meta) return;
+    const { chosenCol, algorithm, maxLevels, nodesExpanded, timeMs, rootValue } = meta;
+    const algoText = algorithm === 1 ? 'ALPHA-BETA' : 'MINIMAX';
+    this.metaSummaryEl.innerHTML = `
+      <span class="tree-meta-chip"><b>ALGO</b> ${algoText}</span>
+      <span class="tree-meta-chip"><b>LEVEL K</b> ${maxLevels}</span>
+      <span class="tree-meta-chip chip-gold"><b>CHOSEN</b> COL ${chosenCol + 1} (${formatValue(rootValue)})</span>
+      <span class="tree-meta-chip"><b>NODES</b> ${nodesExpanded.toLocaleString()}</span>
+      <span class="tree-meta-chip"><b>TIME</b> ${timeMs.toFixed(2)} ms</span>
+    `;
   }
 
   renderPanelContent() {
     if (!this.isOpen()) return;
 
-    if (!this.lastMoveData?.tree) {
-      if (this.metaSummaryEl) {
+    if (!this.lastSnapshot) {
+      if (this.pendingMeta) {
+        this.renderMetaSummary(this.pendingMeta);
+      } else if (this.metaSummaryEl) {
         this.metaSummaryEl.innerHTML = '<span class="tree-meta-chip">DROP A PIECE TO GENERATE THE AI MINIMAX TREE</span>';
       }
       if (this.colStripEl) this.colStripEl.innerHTML = '';
       if (this.nodesLayerEl) {
-        this.nodesLayerEl.innerHTML = '<div class="tree-empty-state">Waiting for AI move...</div>';
+        this.nodesLayerEl.innerHTML = this.pendingMeta
+          ? '<div class="tree-empty-state">Parsing search tree...</div>'
+          : '<div class="tree-empty-state">Waiting for AI move...</div>';
       }
       if (this.svgLayerEl) this.svgLayerEl.innerHTML = '';
       if (this.tracePreEl) {
-        this.tracePreEl.textContent = this.buildTextTree();
+        this.tracePreEl.textContent = this.pendingMeta
+          ? 'Parsing search tree...'
+          : 'Make a move against the computer to generate the Minimax tree.';
       }
       return;
     }
 
-    const { tree, chosenCol, algorithm, maxLevels, nodesExpanded, timeMs, rootValue } = this.lastMoveData;
-    const algoText = algorithm === 1 ? 'ALPHA-BETA' : 'MINIMAX';
-
-    if (this.metaSummaryEl) {
-      this.metaSummaryEl.innerHTML = `
-        <span class="tree-meta-chip"><b>ALGO</b> ${algoText}</span>
-        <span class="tree-meta-chip"><b>LEVEL K</b> ${maxLevels}</span>
-        <span class="tree-meta-chip chip-gold"><b>CHOSEN</b> COL ${chosenCol + 1} (${formatValue(rootValue)})</span>
-        <span class="tree-meta-chip"><b>NODES</b> ${nodesExpanded.toLocaleString()}</span>
-        <span class="tree-meta-chip"><b>TIME</b> ${timeMs.toFixed(2)} ms</span>
-      `;
-    }
-
-    this.renderLevel1Strip(tree, chosenCol);
+    const { meta, level1Children, visualLevels, moveId } = this.lastSnapshot;
+    this.renderMetaSummary(meta);
+    this.renderLevel1Strip(level1Children, meta.chosenCol, moveId);
 
     if (this.activeTab === 'text') {
       if (this.tracePreEl) {
-        this.tracePreEl.textContent = this.buildTextTree(4);
+        this.tracePreEl.textContent = this.cachedTextTrace4 || this.lastSnapshot.textTrace3 || 'Loading text trace...';
       }
     } else {
-      this.renderVisualTree(tree, chosenCol);
+      this.renderVisualTree(visualLevels, moveId);
     }
   }
 
-  renderLevel1Strip(tree, chosenCol) {
+  renderLevel1Strip(children, chosenCol, moveId) {
     if (!this.colStripEl) return;
     this.colStripEl.innerHTML = '';
-    const children = Array.isArray(tree.children) ? tree.children : [];
     const activeCol = this.selectedPathCols[0] ?? chosenCol;
 
-    for (const child of children) {
+    for (const child of children || []) {
       const col = Number(child.col);
       const isChosen = col === chosenCol;
       const isSelected = col === activeCol;
@@ -343,86 +310,18 @@ export class TreeViewer {
       `;
 
       card.addEventListener('click', () => {
-        this.selectBranchAtLevel(0, col);
+        this.onWorkerAction?.({ type: 'selectPath', moveId, levelIdx: 0, col });
       });
 
       this.colStripEl.appendChild(card);
     }
   }
 
-  selectBranchAtLevel(levelIdx, col) {
-    if (!this.lastMoveData?.tree) return;
-    const { tree } = this.lastMoveData;
-    const nextPath = this.selectedPathCols.slice(0, levelIdx);
-    nextPath.push(col);
-
-    let curr = tree;
-    for (let i = 0; i < nextPath.length; i++) {
-      const targetCol = nextPath[i];
-      const found = curr.children?.find((ch) => Number(ch.col) === targetCol);
-      if (!found) break;
-      curr = found;
-    }
-
-    while (curr && !curr.pruned && Array.isArray(curr.children) && curr.children.length > 0) {
-      const nextChild = curr.children.find((ch) => !ch.pruned && ch.value === curr.value)
-        || curr.children.find((ch) => !ch.pruned)
-        || curr.children[0];
-      if (!nextChild) break;
-      nextPath.push(Number(nextChild.col));
-      curr = nextChild;
-    }
-
-    this.selectedPathCols = nextPath;
-    this.renderPanelContent();
-  }
-
-  renderVisualTree(tree, chosenCol) {
+  renderVisualTree(levels, moveId) {
     if (!this.nodesLayerEl) return;
     this.nodesLayerEl.innerHTML = '';
 
-    const levels = [];
-    levels.push({
-      level: Number(tree.level ?? 0),
-      isMax: Boolean(tree.is_max),
-      parentKey: null,
-      nodes: [
-        {
-          node: tree,
-          isPathActive: true,
-          isBestChoice: true
-        }
-      ]
-    });
-
-    let parentNode = tree;
-    for (let d = 0; parentNode && Array.isArray(parentNode.children) && parentNode.children.length > 0; d++) {
-      const children = parentNode.children;
-      const activeCol = this.selectedPathCols[d];
-
-      const rowNodes = children.map((ch) => {
-        const c = Number(ch.col);
-        return {
-          node: ch,
-          isPathActive: c === activeCol,
-          isBestChoice: d === 0 && c === chosenCol
-        };
-      });
-
-      levels.push({
-        level: Number(children[0]?.level ?? d + 1),
-        isMax: Boolean(children[0]?.is_max),
-        parentKey: parentNode._key,
-        depthIndex: d,
-        nodes: rowNodes
-      });
-
-      const nextParent = children.find((ch) => Number(ch.col) === activeCol);
-      if (!nextParent || nextParent.pruned) break;
-      parentNode = nextParent;
-    }
-
-    for (const lvlObj of levels) {
+    for (const lvlObj of levels || []) {
       const rowEl = document.createElement('div');
       rowEl.className = 'tree-level-row';
 
@@ -438,28 +337,26 @@ export class TreeViewer {
       cardsWrap.className = 'tree-level-cards';
 
       for (const item of lvlObj.nodes) {
-        const { node, isPathActive, isBestChoice } = item;
         const btn = document.createElement('button');
         btn.type = 'button';
 
-        const roleClass = node.pruned ? 'node-pruned' : node.is_max ? 'node-max' : 'node-min';
-        const activeClass = isPathActive ? ' path-active' : '';
-        const bestClass = isBestChoice ? ' best-choice' : '';
+        const roleClass = item.pruned ? 'node-pruned' : item.isMax ? 'node-max' : 'node-min';
+        const activeClass = item.isPathActive ? ' path-active' : '';
+        const bestClass = item.isBestChoice ? ' best-choice' : '';
         btn.className = `tree-node-card ${roleClass}${activeClass}${bestClass}`;
-        btn.dataset.nodeKey = node._key;
+        btn.dataset.nodeKey = item.key;
         if (lvlObj.parentKey) {
           btn.dataset.parentKey = lvlObj.parentKey;
         }
-        if (isPathActive) {
+        if (item.isPathActive) {
           btn.dataset.pathEdge = '1';
         }
 
-        const isRoot = Number(node.col) < 0;
-        const roleLabel = node.pruned ? 'PRUNED' : node.is_max ? 'MAX' : 'MIN';
-        const moveLabel = isRoot ? 'ROOT' : `COL ${Number(node.col) + 1}`;
-        const valLabel = node.pruned ? 'CUTOFF' : formatValue(node.value);
-        const childCount = Array.isArray(node.children) ? node.children.length : 0;
-        const subText = childCount > 0 ? `${childCount} CHILDREN` : 'LEAF';
+        const isRoot = item.col < 0;
+        const roleLabel = item.pruned ? 'PRUNED' : item.isMax ? 'MAX' : 'MIN';
+        const moveLabel = isRoot ? 'ROOT' : `COL ${item.col + 1}`;
+        const valLabel = item.pruned ? 'CUTOFF' : formatValue(item.value);
+        const subText = item.childCount > 0 ? `${item.childCount} CHILDREN` : 'LEAF';
 
         btn.innerHTML = `
           <div class="node-card-top">
@@ -472,7 +369,7 @@ export class TreeViewer {
 
         if (!isRoot && typeof lvlObj.depthIndex === 'number') {
           btn.addEventListener('click', () => {
-            this.selectBranchAtLevel(lvlObj.depthIndex, Number(node.col));
+            this.onWorkerAction?.({ type: 'selectPath', moveId, levelIdx: lvlObj.depthIndex, col: item.col });
           });
         }
 

@@ -9,6 +9,13 @@
 #include <string>
 #include <utility>
 
+#define FAST_IO_ON                                                                                                     \
+    std::ios::sync_with_stdio(false);                                                                                  \
+    std::cin.tie(nullptr);
+
+constexpr size_t BYTES_PER_TREE_NODE = 90;
+constexpr size_t BASE_PAYLOAD_BYTES = 512;
+
 constexpr int default_max_levels = 6;
 
 enum class Algorithm
@@ -91,40 +98,49 @@ std::pair<search_result, double> use_algorithm(const state &current, Algorithm a
     return {result, elapsed_ms};
 }
 
-std::string serialize_tree(const tree_node &node)
+void serialize_tree(const tree_node &node, std::string &out)
 {
-    std::string children_json;
+    out += std::format(R"({{"col":{},"level":{},"value":{},"is_max":{},"pruned":{},"children":[)", node.col, node.level,
+                       node.value, node.is_max, node.pruned);
+
     for (size_t i = 0; i < node.children.size(); ++i)
     {
-        children_json += serialize_tree(node.children[i]);
-        if (i + 1 < node.children.size())
-            children_json += ',';
+        if (i > 0)
+            out.push_back(',');
+        serialize_tree(node.children[i], out);
     }
 
-    return std::format(R"({{"col":{},"level":{},"value":{},"is_max":{},"pruned":{},"children":[{}]}})", node.col,
-                       node.level, node.value, node.is_max, node.pruned, children_json);
-}
-
-std::string serialize_state(const search_result &best, double elapsed_ms)
-{
-    std::string rows_json;
-    for (int r = 0; r < ROWS; ++r)
-    {
-        std::string cols_json;
-        for (int c = 0; c < COLS; ++c)
-        {
-            cols_json += std::format("{}{}", static_cast<int>(best.best_move.board[r][c]), (c + 1 < COLS ? "," : ""));
-        }
-        rows_json += std::format("[{}]{}", cols_json, (r + 1 < ROWS ? "," : ""));
-    }
-
-    return std::format(R"({{"board":[{}],"is_terminal":{},"nodes_expanded":{},"time_ms":{:.3f},"tree":{}}})", rows_json,
-                       best.best_move.is_terminal(), best.nodes_expanded, elapsed_ms, serialize_tree(best.root));
+    out.append("]}", 2);
 }
 
 void emit_best_state(const search_result &best, double elapsed_ms)
 {
-    std::cout << serialize_state(best, elapsed_ms) << '\n' << std::flush;
+    std::string out;
+    out.reserve(best.nodes_expanded * BYTES_PER_TREE_NODE + BASE_PAYLOAD_BYTES);
+
+    out.append(R"({"board":[)", 10);
+    for (int r = 0; r < ROWS; ++r)
+    {
+        if (r > 0)
+            out.push_back(',');
+        out.push_back('[');
+        for (int c = 0; c < COLS; ++c)
+        {
+            if (c > 0)
+                out.push_back(',');
+            out += static_cast<char>('0' + static_cast<int>(best.best_move.board[r][c]));
+        }
+        out.push_back(']');
+    }
+
+    out += std::format(R"(],"is_terminal":{},"nodes_expanded":{},"time_ms":{:.3f},"tree":)",
+                       best.best_move.is_terminal(), best.nodes_expanded, elapsed_ms);
+
+    serialize_tree(best.root, out);
+    out.append("}\n", 2);
+
+    std::cout.write(out.data(), out.size());
+    std::cout.flush();
 }
 
 void launch_algorithm(Algorithm algorithm, GameStyle game_style, Cell color, int max_levels = default_max_levels)
@@ -148,6 +164,8 @@ void launch_algorithm(Algorithm algorithm, GameStyle game_style, Cell color, int
 
 int main()
 {
+    FAST_IO_ON
+
     Algorithm choice = choose_algorithm();
 
     GameStyle game_style = get_game_style();

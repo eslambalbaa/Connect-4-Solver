@@ -4,7 +4,7 @@
  * animation states, timeScale modulation, and victory/defeat/draw sequences.
  */
 
-import { MODEL_ANIMATIONS, PLAYERS, REACTION_TIMING } from './constants.js?v=47';
+import { MODEL_ANIMATIONS, PLAYERS, REACTION_TIMING } from './constants.js?v=48';
 
 export class CharacterManager {
   /**

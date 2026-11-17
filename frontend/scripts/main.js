@@ -4,14 +4,14 @@
  * input controller, and match state manager for Connect 4: Shadow vs Tails.
  */
 
-import { AI_CONFIG, BOARD_CONFIG, GAME_MODES, GAME_STYLES, PLAYERS } from './constants.js?v=47';
+import { AI_CONFIG, BOARD_CONFIG, GAME_MODES, GAME_STYLES, PLAYERS } from './constants.js?v=48';
 import { perf } from './perf.js?v=42';
 import { ConfettiEngine } from './confetti.js?v=42';
-import { CharacterManager } from './character-manager.js?v=47';
-import { Connect4Game } from './game.js?v=47';
-import { BoardRenderer } from './board-renderer.js?v=47';
-import { MenuManager } from './menu.js?v=47';
-import { TreeViewer } from './tree-viewer.js?v=47';
+import { CharacterManager } from './character-manager.js?v=48';
+import { Connect4Game } from './game.js?v=48';
+import { BoardRenderer } from './board-renderer.js?v=48';
+import { MenuManager } from './menu.js?v=48';
+import { TreeViewer } from './tree-viewer.js?v=48';
 
 document.addEventListener('DOMContentLoaded', () => {
   // DOM References
@@ -81,7 +81,52 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   const game = new Connect4Game();
-  const treeViewer = new TreeViewer();
+
+  const aiWorker = new Worker('scripts/ai-worker.js?v=48');
+  let aiRequestSeq = 0;
+  const pendingAiRequests = new Map();
+
+  const treeViewer = new TreeViewer({
+    onWorkerAction: (action) => {
+      aiWorker.postMessage(action);
+    }
+  });
+
+  aiWorker.addEventListener('message', (event) => {
+    const msg = event.data;
+    if (!msg || !msg.type) return;
+
+    if (msg.type === 'visualData') {
+      treeViewer.applyVisualData(msg);
+      return;
+    }
+
+    if (msg.type === 'textTrace') {
+      treeViewer.applyTextTrace(msg);
+      return;
+    }
+
+    const req = pendingAiRequests.get(msg.requestId);
+    if (!req) return;
+
+    if (req.currentGen !== matchGeneration || menuManager.isInMenu) {
+      pendingAiRequests.delete(msg.requestId);
+      return;
+    }
+
+    if (msg.type === 'moveReady') {
+      req.moveResolved = true;
+      req.resolveMove(msg);
+    } else if (msg.type === 'treeReady') {
+      pendingAiRequests.delete(msg.requestId);
+      treeViewer.applyTreeSnapshot(msg);
+    } else if (msg.type === 'error') {
+      pendingAiRequests.delete(msg.requestId);
+      if (!req.moveResolved) {
+        req.rejectMove(new Error(msg.message || 'Solver error'));
+      }
+    }
+  });
 
   const CENTER_COL = Math.floor(BOARD_CONFIG.COLS / 2);
 
@@ -93,7 +138,6 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentAlgorithm = AI_CONFIG.DEFAULT_ALGORITHM;
   let currentMaxLevels = AI_CONFIG.MAX_LEVELS;
   let cpuPlayer = AI_CONFIG.CPU_PLAYER;
-  let aiAbortController = null;
   let matchGeneration = 0;
 
   function isCpuTurn() {
@@ -101,10 +145,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function abortPendingAiMove() {
-    if (aiAbortController) {
-      aiAbortController.abort();
-      aiAbortController = null;
+    for (const [requestId, req] of pendingAiRequests.entries()) {
+      aiWorker.postMessage({ type: 'abort', requestId });
+      if (!req.moveResolved) {
+        const abortErr = new Error('Aborted');
+        abortErr.name = 'AbortError';
+        req.rejectMove(abortErr);
+      }
     }
+    pendingAiRequests.clear();
     isAiThinking = false;
   }
 
@@ -153,6 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function resetMatch() {
     matchGeneration++;
     abortPendingAiMove();
+    aiWorker.postMessage({ type: 'clear' });
     game.reset(currentGameStyle);
     isDropping = false;
     activeColumn = CENTER_COL;
@@ -234,44 +284,46 @@ document.addEventListener('DOMContentLoaded', () => {
     treeViewer.setThinkingState();
     syncUI();
 
-    aiAbortController = new AbortController();
+    const requestId = ++aiRequestSeq;
     try {
-      const response = await fetch('/api/move', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          algorithm: currentAlgorithm,
-          game_style: currentGameStyle,
-          color: cpuPlayer,
-          max_levels: currentMaxLevels,
-          board: game.grid
-        }),
-        signal: aiAbortController.signal
+      const moveData = await new Promise((resolveMove, rejectMove) => {
+        pendingAiRequests.set(requestId, {
+          currentGen,
+          resolveMove,
+          rejectMove,
+          moveResolved: false
+        });
+        aiWorker.postMessage({
+          type: 'solve',
+          requestId,
+          payload: {
+            algorithm: currentAlgorithm,
+            game_style: currentGameStyle,
+            color: cpuPlayer,
+            max_levels: currentMaxLevels,
+            board: game.grid
+          }
+        });
       });
 
-      const data = await response.json();
       if (matchGeneration !== currentGen || menuManager.isInMenu) {
         return;
       }
 
-      if (!response.ok || data.error) {
-        throw new Error(data.error || `HTTP ${response.status}`);
-      }
-
-      const aiCol = game.findMoveCol(data.board, cpuPlayer);
+      const aiCol = game.findMoveCol(moveData.board, cpuPlayer);
       if (aiCol < 0) {
         throw new Error('Solver returned an invalid move');
       }
 
-      treeViewer.recordMoveResult({
-        tree: data.tree,
+      treeViewer.setMoveMetrics({
         chosenCol: aiCol,
         cpuPlayer,
         algorithm: currentAlgorithm,
         gameStyle: currentGameStyle,
         maxLevels: currentMaxLevels,
-        nodesExpanded: data.nodes_expanded,
-        timeMs: data.time_ms
+        nodesExpanded: moveData.nodesExpanded,
+        timeMs: moveData.timeMs,
+        rootValue: moveData.rootValue
       });
 
       const remainingSpawnMs = Math.max(0, 220 - (performance.now() - turnStartMs));
@@ -297,6 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
       isAiThinking = false;
       await executeMove(aiCol);
     } catch (err) {
+      pendingAiRequests.delete(requestId);
       if (err.name === 'AbortError' || matchGeneration !== currentGen || menuManager.isInMenu) {
         return;
       }
@@ -304,7 +357,6 @@ document.addEventListener('DOMContentLoaded', () => {
       boardRenderer.updateStatus(`AI error: ${err.message}`, null);
     } finally {
       if (matchGeneration === currentGen) {
-        aiAbortController = null;
         isAiThinking = false;
       }
     }
@@ -400,6 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!menuManager.isInMenu && !menuManager.isTransitioning) {
       matchGeneration++;
       abortPendingAiMove();
+      aiWorker.postMessage({ type: 'clear' });
       isDropping = false;
       confetti.stop();
       characterManager.resetStates();
@@ -457,6 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         matchGeneration++;
         abortPendingAiMove();
+        aiWorker.postMessage({ type: 'clear' });
         isDropping = false;
         confetti.stop();
         characterManager.resetStates();

@@ -23,6 +23,9 @@ class alpha_beta
     }
 
   private:
+    // favor the middle it takes place in more moves
+    constexpr static std::array<int, COLS> COL_ORDER = {3, 2, 4, 1, 5, 0, 6};
+
     static std::pair<int, state> max_value(const state &curr, int alpha, int beta, int level, int k, Cell max_player,
                                            uint64_t &nodes_expanded, tree_node &node)
     {
@@ -39,9 +42,11 @@ class alpha_beta
         int value = -INF;
         state best_move;
         auto neighbours = curr.get_neighbours();
+        node.children.reserve(COLS);
 
-        for (int col = 0; col < COLS; ++col)
+        for (int i = 0; i < COLS; ++i)
         {
+            int col = COL_ORDER[i];
             if (neighbours[col].own_color == Cell::empty)
                 continue;
 
@@ -64,24 +69,27 @@ class alpha_beta
 
             if (value >= beta)
             {
-                for (int j = col + 1; j < COLS; ++j)
+                for (int j = i + 1; j < COLS; ++j)
                 {
-                    if (neighbours[j].own_color == Cell::empty)
+                    int col_j = COL_ORDER[j];
+                    if (neighbours[col_j].own_color == Cell::empty)
                         continue;
 
                     tree_node pruned_node;
-                    pruned_node.col = j;
+                    pruned_node.col = col_j;
                     pruned_node.level = level + 1;
                     pruned_node.is_max = false;
                     pruned_node.pruned = true;
                     node.children.push_back(std::move(pruned_node));
                 }
 
+                std::ranges::sort(node.children, {}, &tree_node::col);
                 node.value = value;
                 return {value, best_move};
             }
         }
 
+        std::ranges::sort(node.children, {}, &tree_node::col);
         node.value = value;
         return {value, best_move};
     }
@@ -102,9 +110,11 @@ class alpha_beta
         int value = INF;
         state best_move;
         auto neighbours = curr.get_neighbours();
+        node.children.reserve(COLS);
 
-        for (int col = 0; col < COLS; ++col)
+        for (int i = 0; i < COLS; ++i)
         {
+            int col = COL_ORDER[i];
             if (neighbours[col].own_color == Cell::empty)
                 continue;
 
@@ -127,24 +137,27 @@ class alpha_beta
 
             if (value <= alpha)
             {
-                for (int j = col + 1; j < COLS; ++j)
+                for (int j = i + 1; j < COLS; ++j)
                 {
-                    if (neighbours[j].own_color == Cell::empty)
+                    int col_j = COL_ORDER[j];
+                    if (neighbours[col_j].own_color == Cell::empty)
                         continue;
 
                     tree_node pruned_node;
-                    pruned_node.col = j;
+                    pruned_node.col = col_j;
                     pruned_node.level = level + 1;
                     pruned_node.is_max = true;
                     pruned_node.pruned = true;
                     node.children.push_back(std::move(pruned_node));
                 }
 
+                std::ranges::sort(node.children, {}, &tree_node::col);
                 node.value = value;
                 return {value, best_move};
             }
         }
 
+        std::ranges::sort(node.children, {}, &tree_node::col);
         node.value = value;
         return {value, best_move};
     }
