@@ -91,16 +91,6 @@ class state
         return neighbours;
     }
 
-    COMPUTES state apply_move(int col) const
-    {
-        state child;
-        child.current_position = OPPONENT_POS(current_position, mask);
-        child.mask = DROP_PIECE(mask, col);
-        child.own_color = (own_color == Cell::red) ? Cell::yellow : Cell::red;
-        child.game_style = game_style;
-        return child;
-    }
-
     COMPUTES uint64_t pos_of(Cell target) const
     {
         if (target == Cell::empty)
@@ -109,21 +99,9 @@ class state
         return (target == own_color) ? current_position : OPPONENT_POS(current_position, mask);
     }
 
-    COMPUTES int count_fours(Cell target) const
-    {
-        // get the owner's position mask
-        const uint64_t pos = pos_of(target);
-        return pos == 0 ? 0 : COUNT_FOURS(pos);
-    }
-
     COMPUTES bool is_board_full() const
     {
         return IS_BOARD_FULL(mask);
-    }
-
-    COMPUTES bool has_any_four() const
-    {
-        return HAS_WON(current_position) or HAS_WON(OPPONENT_POS(current_position, mask));
     }
 
     COMPUTES bool is_terminal() const
@@ -165,10 +143,29 @@ class state
     }
 
     COMPUTES int utility(Cell max_player, int level) const;
-    // a function involving number of boards own state and the other state
-    // it should return a big number if own state is near win and small when
-    // other near to win
-    // probably should use primes randomness
+
+  private:
+    COMPUTES state apply_move(int col) const
+    {
+        state child;
+        child.current_position = OPPONENT_POS(current_position, mask);
+        child.mask = DROP_PIECE(mask, col);
+        child.own_color = (own_color == Cell::red) ? Cell::yellow : Cell::red;
+        child.game_style = game_style;
+        return child;
+    }
+
+    COMPUTES int count_fours(Cell target) const
+    {
+        // get the owner's position mask
+        const uint64_t pos = pos_of(target);
+        return pos == 0 ? 0 : COUNT_FOURS(pos);
+    }
+
+    COMPUTES bool has_any_four() const
+    {
+        return HAS_WON(current_position) or HAS_WON(OPPONENT_POS(current_position, mask));
+    }
 };
 
 struct tree_node
