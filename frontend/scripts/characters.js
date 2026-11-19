@@ -332,8 +332,8 @@ const RAW_CHARACTERS = [
       bottom: '-31%',
       width: '140%',
       height: '140%',
-      translateXLeft: '-53%',
-      translateXRight: '-47%'
+      translateXLeft: '-50%',
+      translateXRight: '-50%'
     },
     animations: {
       idle: { name: 'tl_jump_bunk_loop', fade: 350, timeScale: 0.92 },
@@ -396,9 +396,9 @@ const RAW_CHARACTERS = [
       orbitRadius: 'auto'
     },
     viewport: {
-      bottom: '-100%',
-      width: '122%',
-      height: '228%',
+      bottom: '-94%',
+      width: '116%',
+      height: '216%',
       translateXLeft: '-52%',
       translateXRight: '-48%'
     },

@@ -5,13 +5,13 @@
  */
 
 import { AI_CONFIG, BOARD_CONFIG, GAME_MODES, GAME_STYLES } from './constants.js?v=49';
-import { CHARACTER_LIST, DEFAULT_MATCHUP } from './characters.js?v=53';
+import { CHARACTER_LIST, DEFAULT_MATCHUP } from './characters.js?v=54';
 import { perf } from './perf.js?v=42';
 import { ConfettiEngine } from './confetti.js?v=49';
-import { CharacterManager } from './character-manager.js?v=53';
+import { CharacterManager } from './character-manager.js?v=54';
 import { Connect4Game } from './game.js?v=49';
 import { BoardRenderer } from './board-renderer.js?v=53';
-import { MenuManager } from './menu.js?v=53';
+import { MenuManager } from './menu.js?v=54';
 import { TreeViewer } from './tree-viewer.js?v=48';
 
 document.addEventListener('DOMContentLoaded', () => {

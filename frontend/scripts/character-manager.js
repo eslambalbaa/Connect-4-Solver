@@ -12,7 +12,7 @@ import {
   getEffectiveTheme,
   getSlotCssVars,
   getViewportStylesForSlot
-} from './characters.js?v=53';
+} from './characters.js?v=54';
 
 export class CharacterManager {
   /**

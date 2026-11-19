@@ -5,7 +5,7 @@
  */
 
 import { AI_CONFIG, GAME_MODES, GAME_STYLES, PLAYERS } from './constants.js?v=49';
-import { CHARACTER_LIST, DEFAULT_MATCHUP, getCharacter } from './characters.js?v=53';
+import { CHARACTER_LIST, DEFAULT_MATCHUP, getCharacter } from './characters.js?v=54';
 
 export class MenuManager {
   /**
