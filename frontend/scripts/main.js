@@ -5,13 +5,13 @@
  */
 
 import { AI_CONFIG, BOARD_CONFIG, GAME_MODES, GAME_STYLES } from './constants.js?v=49';
-import { CHARACTER_LIST, DEFAULT_MATCHUP } from './characters.js?v=52';
+import { CHARACTER_LIST, DEFAULT_MATCHUP } from './characters.js?v=53';
 import { perf } from './perf.js?v=42';
 import { ConfettiEngine } from './confetti.js?v=49';
-import { CharacterManager } from './character-manager.js?v=52';
+import { CharacterManager } from './character-manager.js?v=53';
 import { Connect4Game } from './game.js?v=49';
-import { BoardRenderer } from './board-renderer.js?v=49';
-import { MenuManager } from './menu.js?v=52';
+import { BoardRenderer } from './board-renderer.js?v=53';
+import { MenuManager } from './menu.js?v=53';
 import { TreeViewer } from './tree-viewer.js?v=48';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -162,6 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentMaxLevels = AI_CONFIG.MAX_LEVELS;
   let cpuPlayer = AI_CONFIG.CPU_PLAYER;
   let matchGeneration = 0;
+  let matchWinnerId = null;
 
   function isCpuTurn() {
     return currentMode === GAME_MODES.HUMAN_VS_AI && game.currentPlayer === cpuPlayer && !game.isOver;
@@ -202,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const targetRow = isOver ? -1 : game.getLowestAvailableRow(activeColumn);
 
     boardRenderer.renderCursor(activeColumn, player, isOver, targetRow);
-    characterManager.updateActivePanel(player, isOver);
+    characterManager.updateActivePanel(player, isOver, matchWinnerId);
 
     if (!isOver) {
       let scoreSuffix = '';
@@ -225,6 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
    */
   function resetMatch() {
     matchGeneration++;
+    matchWinnerId = null;
     abortPendingAiMove();
     aiWorker.postMessage({ type: 'clear' });
     game.reset(currentGameStyle);
@@ -262,6 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dropResult.winnerId) {
       const winnerId = dropResult.winnerId;
       const winnerName = characterManager.getCharacter(winnerId).name;
+      matchWinnerId = winnerId;
 
       boardRenderer.highlightWinners(dropResult.winLine);
       if (currentGameStyle === GAME_STYLES.FULL_BOARD && dropResult.fours) {
@@ -280,6 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
     } else if (dropResult.isDraw) {
+      matchWinnerId = null;
       if (currentGameStyle === GAME_STYLES.FULL_BOARD && dropResult.fours) {
         boardRenderer.updateStatus(`Draw ${dropResult.fours[1]} - ${dropResult.fours[2]}! Press R or Click to rematch`, null);
       } else {
@@ -287,8 +291,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       characterManager.handleDraw();
     } else {
+      matchWinnerId = null;
       game.switchPlayer();
       activeColumn = CENTER_COL;
+      boardRenderer.snapCursor(CENTER_COL, game.getLowestAvailableRow(CENTER_COL));
     }
 
     isDropping = false;
@@ -473,6 +479,7 @@ document.addEventListener('DOMContentLoaded', () => {
       resetScores();
     },
     onBeforeStartGame: (mode, options = {}) => {
+      matchWinnerId = null;
       if (
         options.characters &&
         (options.characters[1] !== characterManager.getCharacterId(1) ||
@@ -483,7 +490,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       boardRenderer.clear();
       boardRenderer.renderCursor(CENTER_COL, 1, false, BOARD_CONFIG.ROWS - 1);
-      boardRenderer.updateStatus(`${characterManager.getCharacter(1).name}: your move`, 1);
+      characterManager.updateActivePanel(1, false, null);
+      const p1Name = characterManager.getCharacter(1).name;
+      const isCpuFirst = mode === GAME_MODES.HUMAN_VS_AI && options.cpuPlayer === 1;
+      boardRenderer.updateStatus(isCpuFirst ? `${p1Name} is thinking...` : `${p1Name}: your move`, 1);
       treeViewer.setAiModeVisible(mode === GAME_MODES.HUMAN_VS_AI);
       treeViewer.resetTelemetry();
     },
@@ -533,6 +543,7 @@ document.addEventListener('DOMContentLoaded', () => {
   btnMenuEl?.addEventListener('click', () => {
     if (!menuManager.isInMenu && !menuManager.isTransitioning) {
       matchGeneration++;
+      matchWinnerId = null;
       abortPendingAiMove();
       aiWorker.postMessage({ type: 'clear' });
       isDropping = false;
@@ -591,6 +602,7 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
         matchGeneration++;
+        matchWinnerId = null;
         abortPendingAiMove();
         aiWorker.postMessage({ type: 'clear' });
         isDropping = false;

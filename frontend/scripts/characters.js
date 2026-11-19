@@ -255,42 +255,44 @@ const RAW_CHARACTERS = [
       confettiColors: ['#ff1e38', '#ff8592', '#ffffff', '#ffc61a', '#14141c']
     },
     model: {
-      scale: '0.8 0.8 0.8',
+      scale: '0.78 0.78 0.78',
       cameraTarget: '0m 0.2m 0m',
       orbitAzimuthDeg: 55,
       orbitPolarDeg: 82,
       orbitRadius: 'auto'
     },
     viewport: {
-      bottom: '-115%',
-      width: '130%',
-      height: '250%',
-      translateXLeft: '-55%',
-      translateXRight: '-45%'
+      bottom: '-102%',
+      width: '122%',
+      height: '230%',
+      translateXLeft: '-52%',
+      translateXRight: '-48%'
     },
     animations: {
       idle: { name: SHADOW_PREFIX + 'boost', fade: 350, timeScale: 0.92 },
       win: [
         // Stage 1: Shadow plants his feet and fires a sharp victorious Chaos Spear strike
-        { name: SHADOW_PREFIX + 'chaosspearground', ms: 920, fade: 220, timeScale: 1.05, repetitions: 1 },
-        // Stage 2: Seamless 0.00-pose transition into Chaos Blast charge & unleash
-        { name: SHADOW_PREFIX + 'chaosblaststart', ms: 1320, fade: 160, timeScale: 1.0, repetitions: 1 },
+        { name: SHADOW_PREFIX + 'chaosspearground', ms: 1000, fade: 200, timeScale: 1.05, repetitions: Infinity },
+        // Stage 2: Seamless transition into Chaos Blast charge & unleash
+        { name: SHADOW_PREFIX + 'chaosblaststart', ms: 1220, fade: 160, timeScale: 0.92, repetitions: Infinity },
         // Stage 3: Hovers in mid-air radiating victorious Chaos Blast energy
-        { name: SHADOW_PREFIX + 'chaosblastloop', ms: 1350, fade: 150, timeScale: 0.72, repetitions: Infinity },
+        { name: SHADOW_PREFIX + 'chaosblastloop', ms: 850, fade: 180, timeScale: 0.78, repetitions: Infinity },
         // Stage 4: Smoothly descends into his calm, confident Ultimate Lifeform standing stance
-        { name: SHADOW_PREFIX + 'idle', fade: 550, timeScale: 0.95, repetitions: Infinity }
+        { name: SHADOW_PREFIX + 'idle', fade: 480, timeScale: 0.95, repetitions: Infinity }
       ],
       lose: [
         // Stage 1: Shadow flinches back from the blow in shock
-        { name: SHADOW_PREFIX + 'damage', ms: 310, fade: 170, timeScale: 0.85, repetitions: 1 },
+        { name: SHADOW_PREFIX + 'damage', ms: 330, fade: 170, timeScale: 0.85, repetitions: Infinity },
         // Stage 2: Drops heavily onto one knee, bracing his hand down as his quills whip forward
-        { name: SHADOW_PREFIX + 'stompland', ms: 440, fade: 210, timeScale: 0.92, repetitions: 1 },
-        // Stage 3: Seamless 0.02-pose continuation into kneeling recovery, breathing slowly in defeat
-        { name: SHADOW_PREFIX + 'squat', fade: 180, timeScale: 0.75, repetitions: Infinity }
+        { name: SHADOW_PREFIX + 'stompland', ms: 350, fade: 200, timeScale: 0.78, repetitions: Infinity },
+        // Stage 3: Smooth continuation into kneeling recovery, breathing slowly in defeat
+        { name: SHADOW_PREFIX + 'squat', fade: 200, timeScale: 0.78, repetitions: Infinity }
       ],
       draw: [
-        { name: SHADOW_PREFIX + 'stompland', ms: 440, fade: 220, timeScale: 0.95, repetitions: 1 },
-        { name: SHADOW_PREFIX + 'idle', fade: 450, timeScale: 0.9, repetitions: Infinity }
+        // Stage 1: Upright deceleration walk before settling
+        { name: SHADOW_PREFIX + 'walk', ms: 420, fade: 220, timeScale: 1.45, repetitions: Infinity },
+        // Stage 2: Calm standing stance
+        { name: SHADOW_PREFIX + 'idle', fade: 380, timeScale: 0.95, repetitions: Infinity }
       ]
     }
   },
@@ -320,42 +322,44 @@ const RAW_CHARACTERS = [
       confettiColors: ['#ffc61a', '#fff394', '#ff9a1f', '#ffffff', '#1b5fe0']
     },
     model: {
-      scale: '0.85 0.85 0.85',
+      scale: '0.88 0.88 0.88',
       cameraTarget: '0m 0.3m 0m',
       orbitAzimuthDeg: 55,
       orbitPolarDeg: 82,
       orbitRadius: 'auto'
     },
     viewport: {
-      bottom: '-28.5%',
-      width: '128%',
-      height: '128%',
-      translateXLeft: '-58%',
-      translateXRight: '-42%'
+      bottom: '-31%',
+      width: '140%',
+      height: '140%',
+      translateXLeft: '-53%',
+      translateXRight: '-47%'
     },
     animations: {
       idle: { name: 'tl_jump_bunk_loop', fade: 350, timeScale: 0.92 },
       win: [
         // Stage 1: Tails bursts upward throwing both hands high above his head in celebration
-        { name: 'tl_ph_astero_start', ms: 340, fade: 160, timeScale: 0.75, repetitions: 1 },
-        // Stage 2: Executes a joyful aerial 360-degree celebratory spin
-        { name: 'tl_dashring_loop', ms: 620, fade: 170, timeScale: 0.95, repetitions: 2 },
+        { name: 'tl_ph_astero_start', ms: 280, fade: 160, timeScale: 0.52, repetitions: Infinity },
+        // Stage 2: Executes a joyful aerial celebratory spin
+        { name: 'tl_dashring_loop', ms: 700, fade: 160, timeScale: 0.95, repetitions: Infinity },
         // Stage 3: Hits his signature mid-air right-hand fist-pump victory pose with spinning twin tails
-        { name: 'tl_jump_trick_02', ms: 1150, fade: 240, timeScale: 0.88, repetitions: Infinity },
+        { name: 'tl_jump_trick_02', ms: 1150, fade: 220, timeScale: 0.9, repetitions: Infinity },
         // Stage 4: Settles into a cheerful, upright aerial victory hover
-        { name: 'tl_springjump_loop', fade: 360, timeScale: 0.82, repetitions: Infinity }
+        { name: 'tl_springjump_loop', fade: 380, timeScale: 0.82, repetitions: Infinity }
       ],
       lose: [
         // Stage 1: Tails loses balance in mid-air, stumbling and flailing his arms
-        { name: 'tl_stumble_run_loop', ms: 480, fade: 160, timeScale: 0.85, repetitions: Infinity },
+        { name: 'tl_stumble_run_loop', ms: 440, fade: 160, timeScale: 0.85, repetitions: Infinity },
         // Stage 2: Twin tails lose lift as he drops downward
         { name: 'tl_jump_fall_loop', ms: 340, fade: 190, timeScale: 0.85, repetitions: Infinity },
         // Stage 3: Slumps onto the ground, breathing slowly with drooping twin tails
         { name: 'tl_damage_miss_loop', fade: 300, timeScale: 0.35, repetitions: Infinity }
       ],
       draw: [
-        { name: 'tl_landing', ms: 260, fade: 180, timeScale: 0.65, repetitions: 1 },
-        { name: 'tl_springjump_loop', fade: 350, timeScale: 0.8, repetitions: Infinity }
+        // Stage 1: Smooth deceleration run before hovering
+        { name: 'tl_run_loop', ms: 420, fade: 220, timeScale: 1.0, repetitions: Infinity },
+        // Stage 2: Upright aerial hover
+        { name: 'tl_springjump_loop', fade: 380, timeScale: 0.82, repetitions: Infinity }
       ]
     }
   },
@@ -385,42 +389,42 @@ const RAW_CHARACTERS = [
       confettiColors: ['#0077ff', '#6be0ff', '#ffffff', '#ffc61a', '#ff1e38']
     },
     model: {
-      scale: '0.8 0.8 0.8',
-      cameraTarget: '0m 0.2m 0m',
+      scale: '0.78 0.78 0.78',
+      cameraTarget: '0m 0.1m 0m',
       orbitAzimuthDeg: 55,
       orbitPolarDeg: 82,
       orbitRadius: 'auto'
     },
     viewport: {
-      bottom: '-108%',
-      width: '124%',
-      height: '238%',
-      translateXLeft: '-44%',
-      translateXRight: '-56%'
+      bottom: '-100%',
+      width: '122%',
+      height: '228%',
+      translateXLeft: '-52%',
+      translateXRight: '-48%'
     },
     animations: {
       idle: { name: 'airboost', fade: 350, timeScale: 0.92 },
       win: [
-        // Stage 1: Sonic curls into a rapid supersonic Spin Ball burst (~3.7 spins)
-        { name: 'Jump ball/Spin ball', ms: 520, fade: 150, timeScale: 0.9, repetitions: Infinity },
-        // Stage 2: Bursts out of Spin Ball into an aerial Homing Attack twist strike
-        { name: 'homing attack', ms: 780, fade: 140, timeScale: 1.0, repetitions: 1 },
+        // Stage 1: Sonic curls into a rapid supersonic Spin Ball burst
+        { name: 'Jump ball/Spin ball', ms: 520, fade: 150, timeScale: 0.92, repetitions: Infinity },
+        // Stage 2: Bursts out of Spin Ball into an aerial Homing Attack twist strike (blends before 750ms snap)
+        { name: 'homing attack', ms: 580, fade: 140, timeScale: 0.92, repetitions: Infinity },
         // Stage 3: Surges into a triumphant supersonic boost sprint
-        { name: 'boost', ms: 1150, fade: 180, timeScale: 0.95, repetitions: Infinity },
+        { name: 'boost', ms: 1200, fade: 180, timeScale: 1.75, repetitions: Infinity },
         // Stage 4: Touches down cleanly into his relaxed, confident standing stance
-        { name: 'Standing/idle', fade: 380, timeScale: 0.95, repetitions: Infinity }
+        { name: 'Standing/idle', fade: 420, timeScale: 0.95, repetitions: Infinity }
       ],
       lose: [
         // Stage 1: Sonic recoils backward from the blow in shock
-        { name: 'taken damage', ms: 340, fade: 160, timeScale: 0.88, repetitions: 1 },
+        { name: 'taken damage', ms: 330, fade: 170, timeScale: 0.85, repetitions: Infinity },
         // Stage 2: Drops hard onto one knee bracing his hand down
-        { name: 'stomp land', ms: 450, fade: 190, timeScale: 0.92, repetitions: 1 },
-        // Stage 3: Seamless continuation into low kneeling crouch in defeat
-        { name: 'Ducking/squat', fade: 180, timeScale: 0.75, repetitions: Infinity }
+        { name: 'stomp land', ms: 350, fade: 200, timeScale: 0.78, repetitions: Infinity },
+        // Stage 3: Smooth continuation into low kneeling crouch in defeat
+        { name: 'Ducking/squat', fade: 200, timeScale: 0.78, repetitions: Infinity }
       ],
       draw: [
-        // Stage 1: Sonic skids cleanly to a halt out of his run
-        { name: 'slide loop', ms: 420, fade: 170, timeScale: 1.0, repetitions: Infinity },
+        // Stage 1: Upright deceleration walk before settling
+        { name: 'walking', ms: 420, fade: 220, timeScale: 1.45, repetitions: Infinity },
         // Stage 2: Pops upright into his calm standing stance
         { name: 'Standing/idle', fade: 380, timeScale: 0.95, repetitions: Infinity }
       ]

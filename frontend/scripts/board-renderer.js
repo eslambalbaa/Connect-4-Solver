@@ -95,14 +95,23 @@ export class BoardRenderer {
     return Math.floor(ratio * BOARD_CONFIG.COLS);
   }
 
-  snapCursor(col) {
+  snapCursor(col, targetRow = null) {
     this.activeEl.style.transition = 'none';
     this.guidelineEl.style.transition = 'none';
+    if (this.targetRingEl) {
+      this.targetRingEl.style.transition = 'none';
+      if (targetRow !== null) {
+        this.targetRingEl.style.setProperty('--target-row', targetRow);
+      }
+    }
     this.activeEl.style.setProperty('--col', col);
     this.guidelineEl.style.setProperty('--col', col);
     void this.activeEl.offsetWidth;
     this.activeEl.style.transition = '';
     this.guidelineEl.style.transition = '';
+    if (this.targetRingEl) {
+      this.targetRingEl.style.transition = '';
+    }
   }
 
   wait(ms) {
@@ -278,7 +287,7 @@ export class BoardRenderer {
     }
     this.timers = [];
     this.boardEl?.classList.remove('board-thud');
-    this.snapCursor(Math.floor(BOARD_CONFIG.COLS / 2));
+    this.snapCursor(Math.floor(BOARD_CONFIG.COLS / 2), BOARD_CONFIG.ROWS - 1);
 
     const piecesToRemove = this.piecesEl.querySelectorAll('.piece:not(#active)');
     piecesToRemove.forEach((el) => el.remove());

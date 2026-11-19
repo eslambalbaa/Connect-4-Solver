@@ -5,7 +5,7 @@
  */
 
 import { AI_CONFIG, GAME_MODES, GAME_STYLES, PLAYERS } from './constants.js?v=49';
-import { CHARACTER_LIST, DEFAULT_MATCHUP, getCharacter } from './characters.js?v=52';
+import { CHARACTER_LIST, DEFAULT_MATCHUP, getCharacter } from './characters.js?v=53';
 
 export class MenuManager {
   /**
@@ -669,13 +669,17 @@ export class MenuManager {
     this.isInMenu = true;
 
     this.showMainView();
-    this.introScreenEl.classList.remove('hidden', 'leaving');
+    this.introScreenEl.classList.add('leaving');
+    this.introScreenEl.classList.remove('hidden');
+    void this.introScreenEl.offsetWidth;
+    this.introScreenEl.classList.remove('leaving');
+
     document.body.classList.remove('in-game');
     document.body.classList.add('in-menu');
 
     window.setTimeout(() => {
       this.isTransitioning = false;
       this.btnHumanVsHuman?.focus();
-    }, 450);
+    }, 280);
   }
 }

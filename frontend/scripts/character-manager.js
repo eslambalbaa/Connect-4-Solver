@@ -12,7 +12,7 @@ import {
   getEffectiveTheme,
   getSlotCssVars,
   getViewportStylesForSlot
-} from './characters.js?v=52';
+} from './characters.js?v=53';
 
 export class CharacterManager {
   /**
@@ -122,7 +122,7 @@ export class CharacterManager {
   }
 
   /**
-   * Marks a slot's <model-viewer> as loaded and initializes its idle animation.
+   * Marks a slot's <model-viewer> as loaded, applies framing while hidden, and starts idle.
    * @param {number} id
    * @private
    */
@@ -131,15 +131,24 @@ export class CharacterManager {
     const panel = this.panels[id];
     if (!model || !panel) return;
 
-    this.isReady[id] = true;
-    this.loadedSrc[id] = model.getAttribute('src') || this.getCharacter(id).modelSrc;
-    panel.classList.add('ready');
+    const character = this.getCharacter(id);
+    if (model.getAttribute('src') !== character.modelSrc) return;
 
+    this.isReady[id] = true;
+    this.loadedSrc[id] = character.modelSrc;
+
+    this.applyFraming(id, character);
     if (typeof model.jumpCameraToGoal === 'function') {
       model.jumpCameraToGoal();
     }
 
     this.setIdle(id);
+
+    window.requestAnimationFrame(() => {
+      if (this.isReady[id] && model.getAttribute('src') === character.modelSrc) {
+        panel.classList.add('ready');
+      }
+    });
 
     if (!this.hasFiredInitialLoad && this.isReady[1] && this.isReady[2]) {
       this.hasFiredInitialLoad = true;
@@ -202,7 +211,7 @@ export class CharacterManager {
   }
 
   /**
-   * Applies a character's framing and model source to a slot without clearing mirror logic.
+   * Applies a character's framing and model source to a slot without jumping the outgoing model.
    * @param {number} slotId
    * @param {Object} character
    * @private
@@ -210,12 +219,11 @@ export class CharacterManager {
   applySlotCharacter(slotId, character) {
     const model = this.models[slotId];
     const panel = this.panels[slotId];
-
-    this.applyFraming(slotId, character);
     if (!model) return;
 
     const currentSrc = model.getAttribute('src');
     if (this.loadedSrc[slotId] === character.modelSrc && currentSrc === character.modelSrc && this.isReady[slotId]) {
+      this.applyFraming(slotId, character);
       panel?.classList.add('ready');
       if (typeof model.jumpCameraToGoal === 'function') {
         model.jumpCameraToGoal();
@@ -388,6 +396,7 @@ export class CharacterManager {
     const crossfade = clip.fade ?? 300;
     const repetitions = clip.repetitions ?? Infinity;
     const timeScale = clip.timeScale ?? 1.0;
+    const isSameClip = model.animationName === clip.name;
 
     model.animationCrossfadeDuration = crossfade;
     model.animationName = clip.name;
@@ -401,6 +410,9 @@ export class CharacterManager {
     if (this.sequenceTokens[playerId] !== token) return;
 
     model.timeScale = timeScale;
+    if (isSameClip && clip.resetIfSame) {
+      model.currentTime = 0;
+    }
     model.play({ repetitions });
 
     if (clip.pauseAfter != null) {
@@ -468,7 +480,7 @@ export class CharacterManager {
     const currentToken = ++this.sequenceTokens[playerId];
     let stepIndex = 0;
 
-    const advanceStep = () => {
+    const advanceStep = async () => {
       if (this.sequenceTokens[playerId] !== currentToken || stepIndex >= validSteps.length) {
         return;
       }
@@ -476,9 +488,10 @@ export class CharacterManager {
       const step = validSteps[stepIndex++];
       const isFinalStep = stepIndex === validSteps.length;
 
-      this.applyClip(playerId, currentToken, step);
+      // Always loop steps internally so outgoing actions never trigger model-viewer's auto-pause on crossfade
+      await this.applyClip(playerId, currentToken, { ...step, repetitions: Infinity });
 
-      if (isFinalStep) return;
+      if (this.sequenceTokens[playerId] !== currentToken || isFinalStep) return;
 
       this.schedule(playerId, advanceStep, step.ms || 600);
     };
@@ -529,7 +542,7 @@ export class CharacterManager {
     for (const id of [1, 2]) {
       const drawSteps = this.getCharacter(id).animations.draw;
       if (drawSteps?.length) {
-        this.runSequence(id, drawSteps);
+        this.schedule(id, () => this.runSequence(id, drawSteps), REACTION_TIMING.WINNER_DELAY_MS);
       }
     }
   }
@@ -546,13 +559,21 @@ export class CharacterManager {
   }
 
   /**
-   * Updates panel active highlight based on current turn and game over state.
+   * Updates panel active highlight based on current turn, game over, and winner state.
    * @param {number} activePlayer - 1 or 2
    * @param {boolean} isGameOver
+   * @param {number|null} [winnerId=null]
    */
-  updateActivePanel(activePlayer, isGameOver) {
-    this.panels[1]?.classList.toggle('active', isGameOver || activePlayer === 1);
-    this.panels[2]?.classList.toggle('active', isGameOver || activePlayer === 2);
+  updateActivePanel(activePlayer, isGameOver, winnerId = null) {
+    if (isGameOver) {
+      const p1Active = winnerId ? winnerId === 1 : true;
+      const p2Active = winnerId ? winnerId === 2 : true;
+      this.panels[1]?.classList.toggle('active', p1Active);
+      this.panels[2]?.classList.toggle('active', p2Active);
+      return;
+    }
+    this.panels[1]?.classList.toggle('active', activePlayer === 1);
+    this.panels[2]?.classList.toggle('active', activePlayer === 2);
   }
 
   /**

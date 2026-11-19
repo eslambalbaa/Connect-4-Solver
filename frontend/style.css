@@ -237,7 +237,7 @@ html, body {
 }
 
 .panel:not(.active) {
-  opacity: 0.76;
+  opacity: 0.78;
 }
 
 .sprite-container {
@@ -258,6 +258,18 @@ html, body {
   opacity: 0;
   transform: scale(0.92);
   transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+.sprite-container::after {
+  content: '';
+  position: absolute;
+  left: 12%;
+  bottom: 3%;
+  width: 76%;
+  height: 7%;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(7, 25, 64, 0.44), transparent);
 }
 
 #panel1 .sprite-container::before {
@@ -292,25 +304,8 @@ body.in-menu .panel .sprite-container::before {
   animation: breathe 4.2s ease-in-out infinite;
 }
 
-.sprite::after {
-  content: '';
-  position: absolute;
-  left: 12%;
-  bottom: 3%;
-  width: 76%;
-  height: 7%;
-  z-index: 1;
-  background: radial-gradient(closest-side, rgba(7, 25, 64, 0.44), transparent);
-}
-
 /* Menu Staging: Player 1 (left) and Player 2 (right) flank the start menu in crystal-clear 3D */
-body.in-menu #panel1 {
-  transform: translate3d(0, 0, 0);
-  opacity: 0.98;
-  pointer-events: none;
-}
-
-body.in-menu #panel2 {
+body.in-menu .panel {
   transform: translate3d(0, 0, 0);
   opacity: 0.98;
   pointer-events: none;
@@ -322,19 +317,13 @@ body.in-menu .center {
   pointer-events: none;
 }
 
-/* Staggered battle entrance when transitioning from menu to active match */
-body.in-game #panel1 {
-  transform: translate3d(0, 0, 0);
-  opacity: 1;
+/* Battle state when transitioning from menu to active match */
+body.in-game .panel {
   pointer-events: auto;
-  transition-delay: 0s;
 }
 
-body.in-game #panel2 {
-  transform: translate3d(0, 0, 0);
-  opacity: 1;
-  pointer-events: auto;
-  transition-delay: 0.06s;
+body.in-game .panel:not(.active) {
+  opacity: 0.78;
 }
 
 body.in-game .center {
@@ -345,11 +334,11 @@ body.in-game .center {
 }
 
 @media (max-width: 900px) {
-  body.in-menu #panel1 {
+  body.in-menu .panel.left {
     transform: translate3d(calc(-100vw - 120px), 0, 0);
     opacity: 0;
   }
-  body.in-menu #panel2 {
+  body.in-menu .panel.right {
     transform: translate3d(calc(100vw + 120px), 0, 0);
     opacity: 0;
   }
@@ -379,6 +368,15 @@ body.in-game .center {
 .panel.ready #model1,
 .panel.ready #model2 {
   opacity: 1;
+}
+
+.mv-hidden-progress {
+  display: none;
+}
+
+#model1::part(default-progress-bar),
+#model2::part(default-progress-bar) {
+  display: none;
 }
 
 /* Model download progress bar */
@@ -566,7 +564,7 @@ body.in-game .center {
 #board {
   position: relative;
   margin-top: var(--pitch);
-  margin-bottom: 10px;
+  margin-bottom: 18px;
   width: calc(7 * var(--cell) + 6 * var(--gap) + 2 * var(--pad));
   height: calc(6 * var(--cell) + 5 * var(--gap) + 2 * var(--pad));
   user-select: none;
@@ -779,6 +777,8 @@ body.in-game .center {
    ========================================================================== */
 
 #hint {
+  position: relative;
+  z-index: 5;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -843,11 +843,11 @@ body.in-game .center {
 }
 
 body.ai-mode .center {
-  gap: 12px;
+  gap: 14px;
 }
 
 body.ai-mode #board {
-  margin-bottom: 6px;
+  margin-bottom: 16px;
 }
 
 .ai-telemetry {
@@ -1357,7 +1357,7 @@ body.tree-open #panel2 {
    Victory / Defeat Character Staging
    ========================================================================== */
 
-.panel.winner {
+body.in-game .panel.winner {
   opacity: 1;
   transform: scale(1.04);
 }
@@ -1367,7 +1367,7 @@ body.tree-open #panel2 {
 }
 
 .panel.winner[data-win-motion="ground"] .sprite {
-  animation: breathe 3.6s ease-in-out infinite;
+  animation: breathe 4.2s ease-in-out infinite;
 }
 
 @keyframes victory {
@@ -1392,9 +1392,9 @@ body.tree-open #panel2 {
   box-shadow: 0 0 22px rgba(255, 215, 0, 0.85), 5px 6px 0 var(--navy);
 }
 
-.panel.loser {
-  opacity: 0.68;
-  transform: scale(0.96);
+body.in-game .panel.loser {
+  opacity: 0.72;
+  transform: scale(0.95);
 }
 
 .panel.loser .sprite-container::before {
@@ -1402,7 +1402,7 @@ body.tree-open #panel2 {
 }
 
 .panel.loser .sprite {
-  animation: breathe 6s ease-in-out infinite;
+  animation: breathe 4.2s ease-in-out infinite;
 }
 
 /* ==========================================================================
@@ -1571,6 +1571,22 @@ body.tree-open #panel2 {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.menu-action-stack:not(.hidden),
+.menu-guide-card:not(.hidden) {
+  animation: menuViewIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes menuViewIn {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
 }
 
 .menu-action-stack.hidden {
@@ -2316,7 +2332,9 @@ body.lite .panel.winner .sprite-container::before {
   .piece.win,
   .piece.win::before,
   .panel,
-  .center {
+  .center,
+  .menu-action-stack:not(.hidden),
+  .menu-guide-card:not(.hidden) {
     animation: none;
     transition: none;
   }

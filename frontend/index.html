@@ -11,15 +11,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
   <link rel="modulepreload" href="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js">
-  <link rel="modulepreload" href="scripts/main.js?v=52">
+  <link rel="modulepreload" href="scripts/main.js?v=53">
   <link rel="modulepreload" href="scripts/constants.js?v=49">
-  <link rel="modulepreload" href="scripts/characters.js?v=52">
+  <link rel="modulepreload" href="scripts/characters.js?v=53">
   <link rel="modulepreload" href="scripts/perf.js?v=42">
   <link rel="modulepreload" href="scripts/confetti.js?v=49">
-  <link rel="modulepreload" href="scripts/character-manager.js?v=52">
+  <link rel="modulepreload" href="scripts/character-manager.js?v=53">
   <link rel="modulepreload" href="scripts/game.js?v=49">
-  <link rel="modulepreload" href="scripts/board-renderer.js?v=49">
-  <link rel="modulepreload" href="scripts/menu.js?v=52">
+  <link rel="modulepreload" href="scripts/board-renderer.js?v=53">
+  <link rel="modulepreload" href="scripts/menu.js?v=53">
   <link rel="modulepreload" href="scripts/tree-viewer.js?v=48">
 
   <link rel="preload" href="assets/models/shadow.glb" as="fetch" crossorigin>
@@ -32,7 +32,7 @@
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
 
   <!-- Main Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=50">
+  <link rel="stylesheet" href="style.css?v=53">
 </head>
 <body class="in-menu">
   <!-- Dynamic animated environment -->
@@ -395,16 +395,17 @@
             autoplay
             animation-name="shadow.qc_skeleton|boost"
             animation-crossfade-duration="350"
-            scale="0.8 0.8 0.8"
+            scale="0.78 0.78 0.78"
             camera-orbit="-55deg 82deg auto"
             camera-target="0m 0.2m 0m"
-            style="--model-bottom: -115%; --model-width: 130%; --model-height: 250%; --model-translate-x: -55%;"
+            style="--model-bottom: -102%; --model-width: 122%; --model-height: 230%; --model-translate-x: -52%;"
             interaction-prompt="none"
             disable-zoom
             disable-pan
             disable-tap
             shadow-intensity="0"
             environment-image="neutral">
+            <div slot="progress-bar" class="mv-hidden-progress"></div>
           </model-viewer>
         </div>
       </div>
@@ -529,16 +530,17 @@
             autoplay
             animation-name="tl_jump_bunk_loop"
             animation-crossfade-duration="350"
-            scale="0.85 0.85 0.85"
+            scale="0.88 0.88 0.88"
             camera-target="0m 0.3m 0m"
             camera-orbit="55deg 82deg auto"
-            style="--model-bottom: -28.5%; --model-width: 128%; --model-height: 128%; --model-translate-x: -42%;"
+            style="--model-bottom: -31%; --model-width: 140%; --model-height: 140%; --model-translate-x: -47%;"
             interaction-prompt="none"
             disable-zoom
             disable-pan
             disable-tap
             shadow-intensity="0"
             environment-image="neutral">
+            <div slot="progress-bar" class="mv-hidden-progress"></div>
           </model-viewer>
         </div>
       </div>
@@ -556,6 +558,6 @@
   <canvas id="confetti" aria-hidden="true"></canvas>
 
   <!-- Modular Frontend Entry Point -->
-  <script type="module" src="scripts/main.js?v=52"></script>
+  <script type="module" src="scripts/main.js?v=53"></script>
 </body>
 </html>
