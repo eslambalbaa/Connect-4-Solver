@@ -1,16 +1,17 @@
 /**
  * @file main.js
  * @description Main application entry point, lifecycle coordinator, pointer/keyboard
- * input controller, and match state manager for Connect 4: Shadow vs Tails.
+ * input controller, and match state manager for Connect 4.
  */
 
-import { AI_CONFIG, BOARD_CONFIG, GAME_MODES, GAME_STYLES, PLAYERS } from './constants.js?v=48';
+import { AI_CONFIG, BOARD_CONFIG, GAME_MODES, GAME_STYLES } from './constants.js?v=49';
+import { CHARACTER_LIST, DEFAULT_MATCHUP } from './characters.js?v=52';
 import { perf } from './perf.js?v=42';
-import { ConfettiEngine } from './confetti.js?v=42';
-import { CharacterManager } from './character-manager.js?v=48';
-import { Connect4Game } from './game.js?v=48';
-import { BoardRenderer } from './board-renderer.js?v=48';
-import { MenuManager } from './menu.js?v=48';
+import { ConfettiEngine } from './confetti.js?v=49';
+import { CharacterManager } from './character-manager.js?v=52';
+import { Connect4Game } from './game.js?v=49';
+import { BoardRenderer } from './board-renderer.js?v=49';
+import { MenuManager } from './menu.js?v=52';
 import { TreeViewer } from './tree-viewer.js?v=48';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -42,7 +43,25 @@ document.addEventListener('DOMContentLoaded', () => {
     2: document.getElementById('score2')
   };
 
+  const nameEls = {
+    1: document.getElementById('name1'),
+    2: document.getElementById('name2')
+  };
+
+  const matchupEls = {
+    subtitle: document.getElementById('matchupSubtitle'),
+    name1: document.getElementById('matchupName1'),
+    name2: document.getElementById('matchupName2')
+  };
+
   const scores = { 1: 0, 2: 0 };
+
+  function resetScores() {
+    scores[1] = 0;
+    scores[2] = 0;
+    if (scoreEls[1]) scoreEls[1].textContent = '0';
+    if (scoreEls[2]) scoreEls[2].textContent = '0';
+  }
 
   // Generate dynamic background speed lines (capped at 7 for clean GPU compositing)
   if (speedContainer) {
@@ -65,6 +84,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const characterManager = new CharacterManager({
     models,
     panels,
+    nameEls,
+    scoreEls,
+    matchupEls,
+    initialMatchup: DEFAULT_MATCHUP,
     onAllLoaded: () => {
       window.setTimeout(() => perf.probePerformance(), 1500);
     }
@@ -188,10 +211,11 @@ document.addEventListener('DOMContentLoaded', () => {
         scoreSuffix = ` (${fours[1]} - ${fours[2]})`;
       }
 
+      const playerName = characterManager.getCharacter(player).name;
       if (isAiThinking) {
-        boardRenderer.updateStatus(`${PLAYERS[player].name} is thinking...${scoreSuffix}`, player);
+        boardRenderer.updateStatus(`${playerName} is thinking...${scoreSuffix}`, player);
       } else {
-        boardRenderer.updateStatus(`${PLAYERS[player].name}: your move${scoreSuffix}`, player);
+        boardRenderer.updateStatus(`${playerName}: your move${scoreSuffix}`, player);
       }
     }
   }
@@ -237,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (dropResult.winnerId) {
       const winnerId = dropResult.winnerId;
-      const winnerName = PLAYERS[winnerId].name;
+      const winnerName = characterManager.getCharacter(winnerId).name;
 
       boardRenderer.highlightWinners(dropResult.winLine);
       if (currentGameStyle === GAME_STYLES.FULL_BOARD && dropResult.fours) {
@@ -252,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Choreographed staggered victory & defeat sequences
       characterManager.handleGameEnd(winnerId, (winnerPanel) => {
         if (matchGeneration === currentGen && !menuManager.isInMenu) {
-          confetti.start(winnerPanel);
+          confetti.start(winnerPanel, characterManager.getEffectiveTheme(winnerId).confettiColors);
         }
       });
     } else if (dropResult.isDraw) {
@@ -414,9 +438,20 @@ document.addEventListener('DOMContentLoaded', () => {
     btnBackToMainFromStyle: document.getElementById('btnBackToMainFromStyle'),
     btnAlgoMinimax: document.getElementById('btnAlgoMinimax'),
     btnAlgoAlphaBeta: document.getElementById('btnAlgoAlphaBeta'),
-    btnChooseShadow: document.getElementById('btnChooseShadow'),
-    btnChooseTails: document.getElementById('btnChooseTails'),
-    btnBackToAlgo: document.getElementById('btnBackToAlgo'),
+    btnSlot1: document.getElementById('btnSlot1'),
+    btnSlot2: document.getElementById('btnSlot2'),
+    slotRole1: document.getElementById('slotRole1'),
+    slotRole2: document.getElementById('slotRole2'),
+    slotName1: document.getElementById('slotName1'),
+    slotName2: document.getElementById('slotName2'),
+    btnSwapFighters: document.getElementById('btnSwapFighters'),
+    aiSideToggleEl: document.getElementById('aiSideToggle'),
+    btnPlayAsP1: document.getElementById('btnPlayAsP1'),
+    btnPlayAsP2: document.getElementById('btnPlayAsP2'),
+    characterRosterEl: document.getElementById('characterRoster'),
+    btnConfirmCharacters: document.getElementById('btnConfirmCharacters'),
+    btnConfirmCharactersLabel: document.getElementById('btnConfirmCharactersLabel'),
+    btnBackFromCharacter: document.getElementById('btnBackFromCharacter'),
     inputMaxLevels: document.getElementById('inputMaxLevels'),
     btnDepthMinus: document.getElementById('btnDepthMinus'),
     btnDepthPlus: document.getElementById('btnDepthPlus'),
@@ -428,6 +463,30 @@ document.addEventListener('DOMContentLoaded', () => {
     panelLeft: panels[1],
     panelRight: panels[2],
     centerSection: document.querySelector('.center'),
+    initialMatchup: DEFAULT_MATCHUP,
+    onCharacterChange: (slotId, characterId) => {
+      characterManager.setCharacter(slotId, characterId);
+      resetScores();
+    },
+    onSwapCharacters: (charId1, charId2) => {
+      characterManager.setMatchup(charId1, charId2);
+      resetScores();
+    },
+    onBeforeStartGame: (mode, options = {}) => {
+      if (
+        options.characters &&
+        (options.characters[1] !== characterManager.getCharacterId(1) ||
+          options.characters[2] !== characterManager.getCharacterId(2))
+      ) {
+        characterManager.setMatchup(options.characters[1], options.characters[2]);
+        resetScores();
+      }
+      boardRenderer.clear();
+      boardRenderer.renderCursor(CENTER_COL, 1, false, BOARD_CONFIG.ROWS - 1);
+      boardRenderer.updateStatus(`${characterManager.getCharacter(1).name}: your move`, 1);
+      treeViewer.setAiModeVisible(mode === GAME_MODES.HUMAN_VS_AI);
+      treeViewer.resetTelemetry();
+    },
     onStartGame: (mode, options = {}) => {
       currentMode = mode;
       currentGameStyle = typeof options.gameStyle === 'number' ? options.gameStyle : GAME_STYLES.FIRST_FOUR;
@@ -436,9 +495,32 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       cpuPlayer = typeof options.cpuPlayer === 'number' ? options.cpuPlayer : AI_CONFIG.CPU_PLAYER;
       currentMaxLevels = typeof options.maxLevels === 'number' ? options.maxLevels : AI_CONFIG.MAX_LEVELS;
+      if (
+        options.characters &&
+        (options.characters[1] !== characterManager.getCharacterId(1) ||
+          options.characters[2] !== characterManager.getCharacterId(2))
+      ) {
+        characterManager.setMatchup(options.characters[1], options.characters[2]);
+        resetScores();
+      }
       treeViewer.setAiModeVisible(mode === GAME_MODES.HUMAN_VS_AI);
       resetMatch();
     }
+  });
+
+  // DevTools helper for testing newly downloaded .glb models, framing, and animation clips
+  window.c4Characters = Object.freeze({
+    list: () => CHARACTER_LIST.map((c) => ({ id: c.id, name: c.name, modelSrc: c.modelSrc })),
+    inspect: () => characterManager.inspect(),
+    set: (slotId, characterId) => {
+      const char = characterManager.setCharacter(slotId, characterId);
+      menuManager.selectedCharacters[slotId === 2 ? 2 : 1] = char.id;
+      menuManager.syncCharacterViewUI();
+      resetScores();
+      return char;
+    },
+    playClip: (slotId, clipName, opts) => characterManager.playClip(slotId, clipName, opts),
+    setFraming: (slotId, overrides) => characterManager.setFramingOverride(slotId, overrides)
   });
 
   // Action Bar Buttons: Restart & Return to Menu

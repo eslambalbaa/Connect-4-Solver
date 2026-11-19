@@ -30,6 +30,7 @@ export class ConfettiEngine {
     this.emissionArea = null;
     this.secondaryBurstTimer = 0;
     this.isLite = false;
+    this.activeColors = CONFETTI_COLORS;
 
     this.handleResize = this.resize.bind(this);
     window.addEventListener('resize', this.handleResize, { passive: true });
@@ -73,7 +74,7 @@ export class ConfettiEngine {
       vr: randomRange(-8, 8),
       flip: randomRange(0, Math.PI * 2),
       vf: randomRange(5, 11),
-      color: CONFETTI_COLORS[(Math.random() * CONFETTI_COLORS.length) | 0]
+      color: this.activeColors[(Math.random() * this.activeColors.length) | 0]
     });
   }
 
@@ -169,11 +170,17 @@ export class ConfettiEngine {
   /**
    * Starts a celebration over the specified character panel element.
    * @param {HTMLElement} panelElement
+   * @param {string[]|null} [customColors=null]
    */
-  start(panelElement) {
+  start(panelElement, customColors = null) {
     if (this.prefersReducedMotion.matches) return;
     this.stop();
     this.resize();
+
+    this.activeColors =
+      Array.isArray(customColors) && customColors.length
+        ? [...customColors, ...CONFETTI_COLORS]
+        : CONFETTI_COLORS;
 
     const sprite = panelElement.querySelector('.sprite-container') || panelElement;
     const rect = sprite.getBoundingClientRect();
@@ -212,6 +219,7 @@ export class ConfettiEngine {
     this.particles = [];
     this.emitUntil = 0;
     this.carryOver = 0;
+    this.activeColors = CONFETTI_COLORS;
 
     if (this.ctx) {
       this.ctx.setTransform(1, 0, 0, 1, 0, 0);

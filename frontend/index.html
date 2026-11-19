@@ -11,14 +11,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
   <link rel="modulepreload" href="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js">
-  <link rel="modulepreload" href="scripts/main.js?v=48">
-  <link rel="modulepreload" href="scripts/constants.js?v=48">
+  <link rel="modulepreload" href="scripts/main.js?v=52">
+  <link rel="modulepreload" href="scripts/constants.js?v=49">
+  <link rel="modulepreload" href="scripts/characters.js?v=52">
   <link rel="modulepreload" href="scripts/perf.js?v=42">
-  <link rel="modulepreload" href="scripts/confetti.js?v=42">
-  <link rel="modulepreload" href="scripts/character-manager.js?v=48">
-  <link rel="modulepreload" href="scripts/game.js?v=48">
-  <link rel="modulepreload" href="scripts/board-renderer.js?v=48">
-  <link rel="modulepreload" href="scripts/menu.js?v=48">
+  <link rel="modulepreload" href="scripts/confetti.js?v=49">
+  <link rel="modulepreload" href="scripts/character-manager.js?v=52">
+  <link rel="modulepreload" href="scripts/game.js?v=49">
+  <link rel="modulepreload" href="scripts/board-renderer.js?v=49">
+  <link rel="modulepreload" href="scripts/menu.js?v=52">
   <link rel="modulepreload" href="scripts/tree-viewer.js?v=48">
 
   <link rel="preload" href="assets/models/shadow.glb" as="fetch" crossorigin>
@@ -31,7 +32,7 @@
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
 
   <!-- Main Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=48">
+  <link rel="stylesheet" href="style.css?v=50">
 </head>
 <body class="in-menu">
   <!-- Dynamic animated environment -->
@@ -71,10 +72,10 @@
       <header class="sonic-title-block">
         <h1 id="introTitle" class="sonic-main-title">CONNECT 4</h1>
 
-        <div class="sonic-matchup-subtitle" aria-label="Shadow versus Tails">
-          <span class="matchup-name matchup-shadow">SHADOW</span>
+        <div id="matchupSubtitle" class="sonic-matchup-subtitle" aria-label="Shadow versus Tails">
+          <span id="matchupName1" class="matchup-name matchup-p1">SHADOW</span>
           <span class="matchup-vs">VS</span>
-          <span class="matchup-name matchup-tails">TAILS</span>
+          <span id="matchupName2" class="matchup-name matchup-p2">TAILS</span>
         </div>
       </header>
 
@@ -229,29 +230,66 @@
       </section>
 
       <section id="menuCharacterView" class="menu-action-stack hidden" aria-label="Character Selection">
-        <h2 class="menu-subview-title">CHOOSE YOUR FIGHTER</h2>
+        <h2 id="characterViewTitle" class="menu-subview-title">SELECT FIGHTERS</h2>
 
-        <button type="button" id="btnChooseShadow" class="sonic-btn sonic-btn-shadow" aria-label="Play as Shadow">
+        <div class="fighter-slots" role="group" aria-label="Player Slots">
+          <button type="button" id="btnSlot1" class="fighter-slot-card editing" data-slot="1" aria-pressed="true" aria-label="Select Player 1 Slot">
+            <div class="slot-card-top">
+              <span class="slot-badge slot-badge-p1">P1</span>
+              <span id="slotRole1" class="slot-role hidden">YOU</span>
+            </div>
+            <div class="slot-card-main">
+              <span id="slotDisc1" class="slot-disc slot-disc-p1" aria-hidden="true"></span>
+              <span id="slotName1" class="slot-char-name">SHADOW</span>
+            </div>
+          </button>
+
+          <button type="button" id="btnSwapFighters" class="fighter-swap-btn" aria-label="Swap Player 1 and Player 2 Fighters" title="Swap Fighters">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="17 1 21 5 17 9"></polyline>
+              <path d="M3 5h18"></path>
+              <polyline points="7 23 3 19 7 15"></polyline>
+              <path d="M21 19H3"></path>
+            </svg>
+          </button>
+
+          <button type="button" id="btnSlot2" class="fighter-slot-card" data-slot="2" aria-pressed="false" aria-label="Select Player 2 Slot">
+            <div class="slot-card-top">
+              <span class="slot-badge slot-badge-p2">P2</span>
+              <span id="slotRole2" class="slot-role hidden">CPU</span>
+            </div>
+            <div class="slot-card-main">
+              <span id="slotDisc2" class="slot-disc slot-disc-p2" aria-hidden="true"></span>
+              <span id="slotName2" class="slot-char-name">TAILS</span>
+            </div>
+          </button>
+        </div>
+
+        <div id="aiSideToggle" class="ai-side-toggle hidden" role="group" aria-label="Your Turn Order">
+          <span class="ai-side-label">YOU PLAY AS</span>
+          <div class="ai-side-buttons">
+            <button type="button" id="btnPlayAsP1" class="ai-side-btn active" aria-pressed="true">P1 (1ST)</button>
+            <button type="button" id="btnPlayAsP2" class="ai-side-btn" aria-pressed="false">P2 (2ND)</button>
+          </div>
+        </div>
+
+        <div id="characterRoster" class="character-roster" role="listbox" aria-label="Available Characters"></div>
+
+        <button type="button" id="btnConfirmCharacters" class="sonic-btn sonic-btn-primary" aria-label="Confirm Fighter Selection">
           <div class="sonic-btn-decor">
-            <span class="sonic-btn-disc disc-shadow" aria-hidden="true"></span>
+            <span class="sonic-btn-chevron-box">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                <path d="M7 6l6 6-6 6M13 6l6 6-6 6" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </span>
           </div>
           <div class="sonic-btn-content">
-            <span class="sonic-btn-label">SHADOW</span>
+            <span id="btnConfirmCharactersLabel" class="sonic-btn-label">START MATCH</span>
           </div>
           <div class="sonic-btn-checker" aria-hidden="true"></div>
         </button>
 
-        <button type="button" id="btnChooseTails" class="sonic-btn sonic-btn-primary" aria-label="Play as Tails">
-          <div class="sonic-btn-decor">
-            <span class="sonic-btn-disc disc-tails" aria-hidden="true"></span>
-          </div>
-          <div class="sonic-btn-content">
-            <span class="sonic-btn-label">TAILS</span>
-          </div>
-          <div class="sonic-btn-checker" aria-hidden="true"></div>
-        </button>
-
-        <button type="button" id="btnBackToAlgo" class="sonic-btn sonic-btn-tertiary" aria-label="Back to Algorithm Selection">
+        <button type="button" id="btnBackFromCharacter" class="sonic-btn sonic-btn-tertiary" aria-label="Back">
           <div class="sonic-btn-decor">
             <span class="sonic-btn-circle-icon">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
@@ -344,8 +382,8 @@
 
   <!-- Primary Application Arena -->
   <main id="app">
-    <!-- Player 1: Shadow (Left Panel) -->
-    <section class="panel left active" id="panel1" aria-label="Shadow">
+    <!-- Player 1 (Left Panel) -->
+    <section class="panel left active" id="panel1" data-win-motion="ground" aria-label="Shadow">
       <div class="sprite-container">
         <div class="sprite">
           <div class="loader" aria-hidden="true"><i></i></div>
@@ -360,6 +398,7 @@
             scale="0.8 0.8 0.8"
             camera-orbit="-55deg 82deg auto"
             camera-target="0m 0.2m 0m"
+            style="--model-bottom: -115%; --model-width: 130%; --model-height: 250%; --model-translate-x: -55%;"
             interaction-prompt="none"
             disable-zoom
             disable-pan
@@ -372,7 +411,7 @@
       <div class="name-card plate">
         <div class="card-row">
           <span class="player-tag">P1</span>
-          <div class="name">Shadow</div>
+          <div class="name" id="name1">Shadow</div>
           <span class="score-pill" id="score1" title="Shadow Wins">0</span>
         </div>
       </div>
@@ -477,8 +516,8 @@
       </section>
     </section>
 
-    <!-- Player 2: Tails (Right Panel) -->
-    <section class="panel right" id="panel2" aria-label="Tails">
+    <!-- Player 2 (Right Panel) -->
+    <section class="panel right" id="panel2" data-win-motion="hover" aria-label="Tails">
       <div class="sprite-container">
         <div class="sprite">
           <div class="loader" aria-hidden="true"><i></i></div>
@@ -493,6 +532,7 @@
             scale="0.85 0.85 0.85"
             camera-target="0m 0.3m 0m"
             camera-orbit="55deg 82deg auto"
+            style="--model-bottom: -28.5%; --model-width: 128%; --model-height: 128%; --model-translate-x: -42%;"
             interaction-prompt="none"
             disable-zoom
             disable-pan
@@ -505,7 +545,7 @@
       <div class="name-card plate">
         <div class="card-row">
           <span class="player-tag">P2</span>
-          <div class="name">Tails</div>
+          <div class="name" id="name2">Tails</div>
           <span class="score-pill" id="score2" title="Tails Wins">0</span>
         </div>
       </div>
@@ -516,6 +556,6 @@
   <canvas id="confetti" aria-hidden="true"></canvas>
 
   <!-- Modular Frontend Entry Point -->
-  <script type="module" src="scripts/main.js?v=48"></script>
+  <script type="module" src="scripts/main.js?v=52"></script>
 </body>
 </html>

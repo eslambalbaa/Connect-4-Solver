@@ -4,7 +4,7 @@
  * and win-condition verification.
  */
 
-import { BOARD_CONFIG, GAME_STYLES } from './constants.js?v=48';
+import { BOARD_CONFIG, GAME_STYLES } from './constants.js?v=49';
 
 export class Connect4Game {
   constructor() {
