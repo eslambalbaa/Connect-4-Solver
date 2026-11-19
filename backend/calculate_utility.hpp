@@ -12,12 +12,17 @@ constexpr int MAX_UTIL = 100000;
 constexpr int MIN_UTIL = -MAX_UTIL;
 
 constexpr int FOUR_POINT_WEIGHT = 10000;
+
 constexpr int DOUBLE_THREAT_BONUS = 5000;
+constexpr int FULL_BOARD_DOUBLE_THREAT_BONUS = 500;
 
 constexpr int IMMEDIATE_MIN_THREAT = 65;
 constexpr int IMMEDIATE_MAX_THREAT = 50;
-constexpr int FUTURE_MIN_THREAT = 25;
-constexpr int FUTURE_MAX_THREAT = 20;
+constexpr int FUTURE_FAVORED_THREAT = 35;
+constexpr int FUTURE_UNFAVORED_THREAT = 15;
+
+constexpr int FULL_BOARD_FAVORED_THREAT = 27;
+constexpr int FULL_BOARD_UNFAVORED_THREAT = 23;
 
 constexpr int MIN_OPEN_TWO_HORIZ_DIAG = 5;
 constexpr int MAX_OPEN_TWO_HORIZ_DIAG = 4;
@@ -200,8 +205,14 @@ COMPUTES int twos_score(uint64_t max_pos, uint64_t min_pos, uint64_t empty)
     return (max_non_vert * MAX_OPEN_TWO_HORIZ_DIAG + max_vert * MAX_OPEN_TWO_VERT) -
            (min_non_vert * MIN_OPEN_TWO_HORIZ_DIAG + min_vert * MIN_OPEN_TWO_VERT);
 }
-COMPUTES int score_threats(uint64_t mask, uint64_t max_threats, uint64_t min_threats)
+COMPUTES int score_threats(uint64_t mask, uint64_t max_threats, uint64_t min_threats, bool max_is_red,
+                           GameStyle game_style)
 {
+    const bool is_full = (game_style == GameStyle::full_board);
+    const int favored_w = is_full ? FULL_BOARD_FAVORED_THREAT : FUTURE_FAVORED_THREAT;
+    const int unfavored_w = is_full ? FULL_BOARD_UNFAVORED_THREAT : FUTURE_UNFAVORED_THREAT;
+    const int double_threat_w = is_full ? FULL_BOARD_DOUBLE_THREAT_BONUS : DOUBLE_THREAT_BONUS;
+
     int score = 0;
 
     for (int c = 0; c < COLS; ++c)
@@ -224,23 +235,30 @@ COMPUTES int score_threats(uint64_t mask, uint64_t max_threats, uint64_t min_thr
             const bool is_max_t = (max_col & ROW_BIT(bit)) != 0;
             const bool is_min_t = (min_col & ROW_BIT(bit)) != 0;
 
-            if (bit < ROWS - 1)
-            {
-                if (is_max_t and ((max_col & ROW_BIT(bit + 1)) != 0))
-                    score += DOUBLE_THREAT_BONUS;
-                if (is_min_t and ((min_col & ROW_BIT(bit + 1)) != 0))
-                    score -= DOUBLE_THREAT_BONUS;
-            }
+            // red rows take even values advantage
+            const bool is_red_row = ((bit & 1) == 0);
 
             if (is_max_t and !max_blocked_from_below)
             {
-                score += (bit == height) ? IMMEDIATE_MAX_THREAT : FUTURE_MAX_THREAT;
+                if (bit < ROWS - 1 and ((max_col & ROW_BIT(bit + 1)) != 0))
+                    score += double_threat_w;
+
+                if (bit == height)
+                    score += IMMEDIATE_MAX_THREAT;
+                else
+                    score += (is_red_row == max_is_red) ? favored_w : unfavored_w;
                 min_blocked_from_below = true;
             }
 
             if (is_min_t and !min_blocked_from_below)
             {
-                score -= (bit == height) ? IMMEDIATE_MIN_THREAT : FUTURE_MIN_THREAT;
+                if (bit < ROWS - 1 and ((min_col & ROW_BIT(bit + 1)) != 0))
+                    score -= double_threat_w;
+
+                if (bit == height)
+                    score -= IMMEDIATE_MIN_THREAT;
+                else
+                    score -= (is_red_row != max_is_red) ? favored_w : unfavored_w;
                 max_blocked_from_below = true;
             }
         }
@@ -266,7 +284,7 @@ COMPUTES static int evaluate(const state &curr, Cell max_player, int level)
     int score = 0;
     score += connected_fours_score(curr, max_pos, min_pos);
     score += twos_score(max_pos, min_pos, empty);
-    score += score_threats(curr.mask, max_threats, min_threats);
+    score += score_threats(curr.mask, max_threats, min_threats, max_player == Cell::red, curr.game_style);
     score += positional_score(max_pos, min_pos);
 
     return score;
