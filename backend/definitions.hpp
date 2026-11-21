@@ -45,14 +45,28 @@ constexpr uint64_t FULL_BOARD_MASK = build_full_board_mask();
 #define IS_BOARD_FULL(mask) ((mask) == FULL_BOARD_MASK)
 #define POPCOUNT(bb) std::popcount(static_cast<uint64_t>(bb))
 
-#define LINE_4(pos, dir) (((pos) & ((pos) >> (dir))) & (((pos) & ((pos) >> (dir))) >> (2 * (dir))))
-#define HAS_LINE_4(pos, dir) (LINE_4((pos), (dir)) != 0)
-#define HAS_WON(pos)                                                                                                   \
-    (HAS_LINE_4((pos), DIR_HORIZ) or HAS_LINE_4((pos), DIR_VERT) or HAS_LINE_4((pos), DIR_DIAG_UP) or                  \
-     HAS_LINE_4((pos), DIR_DIAG_DOWN))
-#define COUNT_FOURS(pos)                                                                                               \
-    (POPCOUNT(LINE_4((pos), DIR_HORIZ)) + POPCOUNT(LINE_4((pos), DIR_VERT)) + POPCOUNT(LINE_4((pos), DIR_DIAG_UP)) +   \
-     POPCOUNT(LINE_4((pos), DIR_DIAG_DOWN)))
+COMPUTES uint64_t LINE_4(uint64_t pos, int dir)
+{
+    const uint64_t step = pos & (pos >> dir);
+    return step & (step >> (2 * dir));
+}
+
+COMPUTES bool HAS_LINE_4(uint64_t pos, int dir)
+{
+    return LINE_4(pos, dir) != 0;
+}
+
+COMPUTES bool HAS_WON(uint64_t pos)
+{
+    return HAS_LINE_4(pos, DIR_HORIZ) or HAS_LINE_4(pos, DIR_VERT) or HAS_LINE_4(pos, DIR_DIAG_UP) or
+           HAS_LINE_4(pos, DIR_DIAG_DOWN);
+}
+
+COMPUTES int COUNT_FOURS(uint64_t pos)
+{
+    return std::popcount(LINE_4(pos, DIR_HORIZ)) + std::popcount(LINE_4(pos, DIR_VERT)) +
+           std::popcount(LINE_4(pos, DIR_DIAG_UP)) + std::popcount(LINE_4(pos, DIR_DIAG_DOWN));
+}
 
 enum class GameStyle
 {
@@ -76,6 +90,8 @@ class state
     Cell own_color{Cell::empty};
     GameStyle game_style{GameStyle::full_board};
 
+    // isn't used as we evaluate children lazily during evaluation
+    // will keep it though
     COMPUTES std::array<state, COLS> get_neighbours() const
     {
         std::array<state, COLS> neighbours{};
@@ -123,6 +139,16 @@ class state
         return (own_color == Cell::red) ? Cell::yellow : Cell::red;
     }
 
+    COMPUTES state apply_move(int col) const
+    {
+        state child;
+        child.current_position = OPPONENT_POS(current_position, mask);
+        child.mask = DROP_PIECE(mask, col);
+        child.own_color = (own_color == Cell::red) ? Cell::yellow : Cell::red;
+        child.game_style = game_style;
+        return child;
+    }
+
     COMPUTES void from_2d_board(const std::array<std::array<Cell, COLS>, ROWS> &board)
     {
         mask = 0;
@@ -145,16 +171,6 @@ class state
     COMPUTES int utility(Cell max_player, int level) const;
 
   private:
-    COMPUTES state apply_move(int col) const
-    {
-        state child;
-        child.current_position = OPPONENT_POS(current_position, mask);
-        child.mask = DROP_PIECE(mask, col);
-        child.own_color = (own_color == Cell::red) ? Cell::yellow : Cell::red;
-        child.game_style = game_style;
-        return child;
-    }
-
     COMPUTES int count_fours(Cell target) const
     {
         // get the owner's position mask
@@ -164,7 +180,7 @@ class state
 
     COMPUTES bool has_any_four() const
     {
-        return HAS_WON(current_position) or HAS_WON(OPPONENT_POS(current_position, mask));
+        return HAS_WON(OPPONENT_POS(current_position, mask));
     }
 };
 

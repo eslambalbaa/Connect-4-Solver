@@ -101,11 +101,6 @@ constexpr auto WEIGHT_TABLE = build_weight_buckets();
 #define COL_SLICE(bb, c) (((bb) >> ((c) * BITS_PER_COL)) & PLAYABLE_COL_BITS)
 #define ROW_BIT(bit) (1ULL << (bit))
 
-#define LINE_4(pos, dir) (((pos) & ((pos) >> (dir))) & (((pos) & ((pos) >> (dir))) >> (2 * (dir))))
-#define COUNT_FOURS(pos)                                                                                               \
-    (POPCOUNT(LINE_4((pos), DIR_HORIZ)) + POPCOUNT(LINE_4((pos), DIR_VERT)) + POPCOUNT(LINE_4((pos), DIR_DIAG_UP)) +   \
-     POPCOUNT(LINE_4((pos), DIR_DIAG_DOWN)))
-
 COMPUTES int player_pos_score(uint64_t pos)
 {
     int score = 0;

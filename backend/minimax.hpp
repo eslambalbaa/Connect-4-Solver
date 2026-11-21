@@ -38,17 +38,16 @@ class minimax
 
         int value = -INF;
         state best_move;
-        auto neighbours = curr.get_neighbours();
 
         if (should_record(level))
             node.children.reserve(COLS);
 
         for (int col = 0; col < COLS; ++col)
         {
-            if (neighbours[col].own_color == Cell::empty)
+            if (!CAN_PLAY(curr.mask, col))
                 continue;
 
-            const state &child = neighbours[col];
+            const state child = curr.apply_move(col);
 
             tree_node child_node;
             child_node.col = col;
@@ -86,17 +85,16 @@ class minimax
 
         int value = INF;
         state best_move;
-        auto neighbours = curr.get_neighbours();
 
         if (should_record(level))
             node.children.reserve(COLS);
 
         for (int col = 0; col < COLS; ++col)
         {
-            if (neighbours[col].own_color == Cell::empty)
+            if (!CAN_PLAY(curr.mask, col))
                 continue;
 
-            const state &child = neighbours[col];
+            const state child = curr.apply_move(col);
 
             tree_node child_node;
             child_node.col = col;

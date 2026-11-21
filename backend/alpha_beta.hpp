@@ -41,7 +41,6 @@ class alpha_beta
 
         int value = -INF;
         state best_move;
-        auto neighbours = curr.get_neighbours();
 
         if (should_record(level))
             node.children.reserve(COLS);
@@ -49,10 +48,10 @@ class alpha_beta
         for (int i = 0; i < COLS; ++i)
         {
             int col = COL_ORDER[i];
-            if (neighbours[col].own_color == Cell::empty)
+            if (!CAN_PLAY(curr.mask, col))
                 continue;
 
-            const state &child = neighbours[col];
+            const state child = curr.apply_move(col);
 
             tree_node child_node;
             child_node.col = col;
@@ -78,7 +77,7 @@ class alpha_beta
                     for (int j = i + 1; j < COLS; ++j)
                     {
                         int col_j = COL_ORDER[j];
-                        if (neighbours[col_j].own_color == Cell::empty)
+                        if (!CAN_PLAY(curr.mask, col_j))
                             continue;
 
                         tree_node pruned_node;
@@ -116,7 +115,6 @@ class alpha_beta
 
         int value = INF;
         state best_move;
-        auto neighbours = curr.get_neighbours();
 
         if (should_record(level))
             node.children.reserve(COLS);
@@ -124,10 +122,10 @@ class alpha_beta
         for (int i = 0; i < COLS; ++i)
         {
             int col = COL_ORDER[i];
-            if (neighbours[col].own_color == Cell::empty)
+            if (!CAN_PLAY(curr.mask, col))
                 continue;
 
-            const state &child = neighbours[col];
+            const state child = curr.apply_move(col);
 
             tree_node child_node;
             child_node.col = col;
@@ -153,7 +151,7 @@ class alpha_beta
                     for (int j = i + 1; j < COLS; ++j)
                     {
                         int col_j = COL_ORDER[j];
-                        if (neighbours[col_j].own_color == Cell::empty)
+                        if (!CAN_PLAY(curr.mask, col_j))
                             continue;
 
                         tree_node pruned_node;
