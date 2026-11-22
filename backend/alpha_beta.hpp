@@ -95,7 +95,9 @@ class alpha_beta
             }
         }
 
-        std::ranges::sort(node.children, {}, &tree_node::col);
+        if (should_record(level))
+            std::ranges::sort(node.children, {}, &tree_node::col);
+
         node.value = value;
         return {value, best_move};
     }
@@ -169,7 +171,9 @@ class alpha_beta
             }
         }
 
-        std::ranges::sort(node.children, {}, &tree_node::col);
+        if (should_record(level))
+            std::ranges::sort(node.children, {}, &tree_node::col);
+
         node.value = value;
         return {value, best_move};
     }
