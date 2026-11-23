@@ -4,6 +4,14 @@ function formatValue(val) {
   return n > 0 ? `+${n}` : `${n}`;
 }
 
+function formatBound(val) {
+  if (val === null || val === undefined || Number.isNaN(Number(val))) return '--';
+  const n = Math.trunc(Number(val));
+  if (n <= -2000000000) return '-∞';
+  if (n >= 2000000000) return '+∞';
+  return n > 0 ? `+${n}` : `${n}`;
+}
+
 export class TreeViewer {
   constructor({ onWorkerAction = null } = {}) {
     this.onWorkerAction = onWorkerAction;
@@ -193,10 +201,6 @@ export class TreeViewer {
     this.selectedPathCols = snapshot.selectedPathCols || [];
     this.cachedTextTrace4 = null;
 
-    if (snapshot.textTrace3) {
-      console.log(snapshot.textTrace3);
-    }
-
     if (this.isOpen()) {
       this.renderPanelContent();
       if (this.activeTab === 'text') {
@@ -356,7 +360,27 @@ export class TreeViewer {
         const roleLabel = item.pruned ? 'PRUNED' : item.isMax ? 'MAX' : 'MIN';
         const moveLabel = isRoot ? 'ROOT' : `COL ${item.col + 1}`;
         const valLabel = item.pruned ? 'CUTOFF' : formatValue(item.value);
-        const subText = item.childCount > 0 ? `${item.childCount} CHILDREN` : 'LEAF';
+        const orderBadge = !isRoot && item.order > 0 ? `#${item.order} • ` : '';
+        let subText = '';
+        if (item.pruned) {
+          subText = `${orderBadge}α≥β CUTOFF`;
+        } else if (item.isLeaf) {
+          subText = `${orderBadge}HEURISTIC`;
+        } else if (item.truncated) {
+          const maxK = this.lastSnapshot?.meta?.maxLevels ?? '';
+          subText = `${orderBadge}TO L${maxK}`;
+        } else if (item.childCount > 0) {
+          subText = `${orderBadge}${item.childCount} CHILDREN`;
+        } else {
+          subText = `${orderBadge}LEAF`;
+        }
+
+        const isAlphaBeta = this.lastSnapshot?.meta?.algorithm === 1;
+        const abTooltip = isAlphaBeta ? ` | α=${formatBound(item.alpha)}, β=${formatBound(item.beta)}` : '';
+        const stepTooltip = !isRoot && item.order > 0 ? ` | Eval Step #${item.order}` : '';
+        btn.title = item.pruned
+          ? `${moveLabel} (${roleLabel})${stepTooltip}${abTooltip}`
+          : `${moveLabel} (${roleLabel}) | Value: ${valLabel}${stepTooltip}${abTooltip}`;
 
         btn.innerHTML = `
           <div class="node-card-top">

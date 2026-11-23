@@ -70,7 +70,7 @@ def get_move():
             text=True,
             capture_output=True,
             check=True,
-            timeout=15,
+            timeout=30,
         )
         stdout = result.stdout.strip()
         if not stdout:

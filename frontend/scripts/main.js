@@ -4,15 +4,15 @@
  * input controller, and match state manager for Connect 4.
  */
 
-import { AI_CONFIG, BOARD_CONFIG, GAME_MODES, GAME_STYLES } from './constants.js?v=49';
+import { AI_CONFIG, BOARD_CONFIG, GAME_MODES, GAME_STYLES } from './constants.js?v=55';
 import { CHARACTER_LIST, DEFAULT_MATCHUP } from './characters.js?v=54';
 import { perf } from './perf.js?v=42';
 import { ConfettiEngine } from './confetti.js?v=49';
-import { CharacterManager } from './character-manager.js?v=54';
-import { Connect4Game } from './game.js?v=49';
-import { BoardRenderer } from './board-renderer.js?v=53';
-import { MenuManager } from './menu.js?v=54';
-import { TreeViewer } from './tree-viewer.js?v=48';
+import { CharacterManager } from './character-manager.js?v=55';
+import { Connect4Game } from './game.js?v=55';
+import { BoardRenderer } from './board-renderer.js?v=55';
+import { MenuManager } from './menu.js?v=55';
+import { TreeViewer } from './tree-viewer.js?v=55';
 
 document.addEventListener('DOMContentLoaded', () => {
   // DOM References
@@ -42,6 +42,33 @@ document.addEventListener('DOMContentLoaded', () => {
     1: document.getElementById('score1'),
     2: document.getElementById('score2')
   };
+
+  const foursEls = {
+    1: document.getElementById('fours1'),
+    2: document.getElementById('fours2')
+  };
+
+  const lastFours = { 1: 0, 2: 0 };
+
+  function syncFoursHUD(forceReset = false) {
+    const isFullBoard = currentGameStyle === GAME_STYLES.FULL_BOARD;
+    const counts = forceReset ? { 1: 0, 2: 0 } : game.getFourCounts();
+
+    for (const id of [1, 2]) {
+      const el = foursEls[id];
+      if (!el) continue;
+      el.classList.toggle('hidden', !isFullBoard);
+      const nextVal = counts[id] ?? 0;
+      el.textContent = `4s: ${nextVal}`;
+      if (!forceReset && isFullBoard && nextVal !== lastFours[id]) {
+        el.classList.remove('bump');
+        void el.offsetWidth;
+        el.classList.add('bump');
+        window.setTimeout(() => el.classList.remove('bump'), 320);
+      }
+      lastFours[id] = nextVal;
+    }
+  }
 
   const nameEls = {
     1: document.getElementById('name1'),
@@ -105,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const game = new Connect4Game();
 
-  const aiWorker = new Worker('scripts/ai-worker.js?v=48');
+  const aiWorker = new Worker('scripts/ai-worker.js?v=55');
   let aiRequestSeq = 0;
   const pendingAiRequests = new Map();
 
@@ -156,8 +183,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let activeColumn = CENTER_COL;
   let isDropping = false;
   let isAiThinking = false;
-  let currentMode = GAME_MODES.HUMAN_VS_HUMAN;
-  let currentGameStyle = GAME_STYLES.FIRST_FOUR;
+  let currentMode = GAME_MODES.HUMAN_VS_AI;
+  let currentGameStyle = GAME_STYLES.FULL_BOARD;
   let currentAlgorithm = AI_CONFIG.DEFAULT_ALGORITHM;
   let currentMaxLevels = AI_CONFIG.MAX_LEVELS;
   let cpuPlayer = AI_CONFIG.CPU_PLAYER;
@@ -204,6 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     boardRenderer.renderCursor(activeColumn, player, isOver, targetRow);
     characterManager.updateActivePanel(player, isOver, matchWinnerId);
+    syncFoursHUD();
 
     if (!isOver) {
       let scoreSuffix = '';
@@ -237,6 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
     characterManager.resetStates();
     boardRenderer.clear();
     treeViewer.resetTelemetry();
+    syncFoursHUD(true);
     syncUI();
 
     if (!game.isOver && isCpuTurn() && !menuManager.isInMenu) {
@@ -480,6 +509,7 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     onBeforeStartGame: (mode, options = {}) => {
       matchWinnerId = null;
+      currentGameStyle = typeof options.gameStyle === 'number' ? options.gameStyle : GAME_STYLES.FULL_BOARD;
       if (
         options.characters &&
         (options.characters[1] !== characterManager.getCharacterId(1) ||
@@ -491,6 +521,7 @@ document.addEventListener('DOMContentLoaded', () => {
       boardRenderer.clear();
       boardRenderer.renderCursor(CENTER_COL, 1, false, BOARD_CONFIG.ROWS - 1);
       characterManager.updateActivePanel(1, false, null);
+      syncFoursHUD(true);
       const p1Name = characterManager.getCharacter(1).name;
       const isCpuFirst = mode === GAME_MODES.HUMAN_VS_AI && options.cpuPlayer === 1;
       boardRenderer.updateStatus(isCpuFirst ? `${p1Name} is thinking...` : `${p1Name}: your move`, 1);
@@ -499,7 +530,7 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     onStartGame: (mode, options = {}) => {
       currentMode = mode;
-      currentGameStyle = typeof options.gameStyle === 'number' ? options.gameStyle : GAME_STYLES.FIRST_FOUR;
+      currentGameStyle = typeof options.gameStyle === 'number' ? options.gameStyle : GAME_STYLES.FULL_BOARD;
       if (typeof options.algorithm === 'number') {
         currentAlgorithm = options.algorithm;
       }
@@ -620,6 +651,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if ((e.key === 't' || e.key === 'T') && currentMode === GAME_MODES.HUMAN_VS_AI && !e.repeat) {
       treeViewer.togglePanel();
+      return;
+    }
+
+    if (treeViewer.isOpen()) {
       return;
     }
 

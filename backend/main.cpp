@@ -13,7 +13,7 @@
     std::ios::sync_with_stdio(false);                                                                                  \
     std::cin.tie(nullptr);
 
-constexpr size_t BYTES_PER_TREE_NODE = 90;
+constexpr size_t BYTES_PER_TREE_NODE = 170;
 constexpr size_t BASE_PAYLOAD_BYTES = 512;
 
 constexpr int default_max_levels = 6;
@@ -50,10 +50,13 @@ Cell choose_color()
 
 int get_max_levels()
 {
-    int max_levels;
-    std::cin >> max_levels;
+    int max_levels = default_max_levels;
+    if (std::cin >> max_levels)
+    {
+        return std::clamp(max_levels, 1, 9);
+    }
 
-    return max_levels;
+    return default_max_levels;
 }
 
 bool input_state(state &out_state)
@@ -107,6 +110,16 @@ inline void append_int(std::string &out, int val)
     out.append(buf, ptr - buf);
 }
 
+size_t count_recorded_nodes(const tree_node &node)
+{
+    size_t count = 1;
+    for (const auto &child : node.children)
+    {
+        count += count_recorded_nodes(child);
+    }
+    return count;
+}
+
 void serialize_tree(const tree_node &node, std::string &out)
 {
     out.append(R"({"col":)", 7);
@@ -115,7 +128,15 @@ void serialize_tree(const tree_node &node, std::string &out)
     append_int(out, node.level);
     out.append(R"(,"value":)", 9);
     append_int(out, node.value);
+    out.append(R"(,"alpha":)", 9);
+    append_int(out, node.alpha);
+    out.append(R"(,"beta":)", 8);
+    append_int(out, node.beta);
+    out.append(R"(,"order":)", 9);
+    append_int(out, node.order);
     out.append(node.is_max ? R"(,"is_max":true)" : R"(,"is_max":false)", node.is_max ? 14 : 15);
+    out.append(node.is_leaf ? R"(,"is_leaf":true)" : R"(,"is_leaf":false)", node.is_leaf ? 15 : 16);
+    out.append(node.truncated ? R"(,"truncated":true)" : R"(,"truncated":false)", node.truncated ? 17 : 18);
     out.append(node.pruned ? R"(,"pruned":true,"children":[)" : R"(,"pruned":false,"children":[)",
                node.pruned ? 27 : 28);
 
@@ -132,7 +153,8 @@ void serialize_tree(const tree_node &node, std::string &out)
 void emit_best_state(const search_result &best, double elapsed_ms)
 {
     std::string out;
-    out.reserve(best.nodes_expanded * BYTES_PER_TREE_NODE + BASE_PAYLOAD_BYTES);
+    const size_t recorded_nodes = count_recorded_nodes(best.root);
+    out.reserve(recorded_nodes * BYTES_PER_TREE_NODE + BASE_PAYLOAD_BYTES);
 
     out.append(R"({"board":[)", 10);
     for (int r = 0; r < ROWS; ++r)

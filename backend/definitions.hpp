@@ -189,8 +189,13 @@ struct tree_node
     int col = -1;
     int level = 0;
     int value = 0;
+    int alpha = -INF;
+    int beta = INF;
+    int order = 0;
     bool is_max = true;
     bool pruned = false;
+    bool is_leaf = false;
+    bool truncated = false;
     std::vector<tree_node> children;
 };
 
@@ -204,9 +209,16 @@ struct search_result
 // set for -1 if we need unlimited depth
 constexpr int MAX_RECORD_DEPTH = -1;
 
-inline bool should_record(int level)
+inline int effective_record_depth(int k)
 {
-    return MAX_RECORD_DEPTH < 0 || level < MAX_RECORD_DEPTH;
+    if (MAX_RECORD_DEPTH < 0)
+        return k;
+    return (k <= 5) ? k : MAX_RECORD_DEPTH;
+}
+
+inline bool should_record(int level, int k)
+{
+    return level < effective_record_depth(k);
 }
 
 // included here cause utility is defined at the end of it

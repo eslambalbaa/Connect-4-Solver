@@ -4,7 +4,7 @@
  * algorithm selection, live 3D fighter selection, keyboard navigation, and animated entrance sequence.
  */
 
-import { AI_CONFIG, GAME_MODES, GAME_STYLES, PLAYERS } from './constants.js?v=49';
+import { AI_CONFIG, GAME_MODES, GAME_STYLES, PLAYERS } from './constants.js?v=55';
 import { CHARACTER_LIST, DEFAULT_MATCHUP, getCharacter } from './characters.js?v=54';
 
 export class MenuManager {
@@ -106,8 +106,8 @@ export class MenuManager {
     this.isInMenu = true;
     this.isTransitioning = false;
     this.currentView = 'main';
-    this.selectedMode = GAME_MODES.HUMAN_VS_HUMAN;
-    this.selectedGameStyle = GAME_STYLES.FIRST_FOUR;
+    this.selectedMode = GAME_MODES.HUMAN_VS_AI;
+    this.selectedGameStyle = GAME_STYLES.FULL_BOARD;
     this.selectedAlgorithm = AI_CONFIG.DEFAULT_ALGORITHM;
     this.selectedHumanPlayer = PLAYERS[1].id;
     this.selectedCpuPlayer = PLAYERS[2].id;
@@ -130,7 +130,7 @@ export class MenuManager {
     if (!Number.isFinite(parsed) || parsed < 1) {
       return 1;
     }
-    return Math.min(42, parsed);
+    return Math.min(9, parsed);
   }
 
   commitDepthInput() {
@@ -144,7 +144,7 @@ export class MenuManager {
 
   adjustDepth(delta) {
     const base = this.normalizeMaxLevels(this.inputMaxLevels?.value ?? this.selectedMaxLevels);
-    const next = Math.max(1, Math.min(42, base + delta));
+    const next = Math.max(1, Math.min(9, base + delta));
     this.selectedMaxLevels = next;
     if (this.inputMaxLevels) {
       this.inputMaxLevels.value = String(next);
@@ -512,24 +512,24 @@ export class MenuManager {
         }
       } else if (this.currentView === 'main' && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
         e.preventDefault();
-        if (document.activeElement === this.btnHumanVsHuman) {
-          this.btnHumanVsAi?.focus();
-        } else {
+        if (document.activeElement === this.btnHumanVsAi) {
           this.btnHumanVsHuman?.focus();
+        } else {
+          this.btnHumanVsAi?.focus();
         }
       } else if (this.currentView === 'gameStyle' && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
         e.preventDefault();
-        if (document.activeElement === this.btnStyleFirstFour) {
-          this.btnStyleFullBoard?.focus();
-        } else {
+        if (document.activeElement === this.btnStyleFullBoard) {
           this.btnStyleFirstFour?.focus();
+        } else {
+          this.btnStyleFullBoard?.focus();
         }
       } else if (this.currentView === 'algo' && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
         e.preventDefault();
-        if (document.activeElement === this.btnAlgoMinimax) {
-          this.btnAlgoAlphaBeta?.focus();
-        } else {
+        if (document.activeElement === this.btnAlgoAlphaBeta) {
           this.btnAlgoMinimax?.focus();
+        } else {
+          this.btnAlgoAlphaBeta?.focus();
         }
       } else if (
         this.currentView === 'character' &&
@@ -565,7 +565,7 @@ export class MenuManager {
     this.selectedMode = mode;
     this.hideAllViews();
     this.gameStyleViewEl?.classList.remove('hidden');
-    this.btnStyleFirstFour?.focus();
+    this.btnStyleFullBoard?.focus();
   }
 
   /**
@@ -575,7 +575,7 @@ export class MenuManager {
     this.currentView = 'algo';
     this.hideAllViews();
     this.algoViewEl?.classList.remove('hidden');
-    this.btnAlgoMinimax?.focus();
+    this.btnAlgoAlphaBeta?.focus();
   }
 
   showCharacterView(algorithm = this.selectedAlgorithm) {
@@ -679,7 +679,7 @@ export class MenuManager {
 
     window.setTimeout(() => {
       this.isTransitioning = false;
-      this.btnHumanVsHuman?.focus();
+      this.btnHumanVsAi?.focus();
     }, 280);
   }
 }

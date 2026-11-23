@@ -4,7 +4,7 @@
  * and win-condition verification.
  */
 
-import { BOARD_CONFIG, GAME_STYLES } from './constants.js?v=49';
+import { BOARD_CONFIG, GAME_STYLES } from './constants.js?v=55';
 
 export class Connect4Game {
   constructor() {
@@ -12,7 +12,7 @@ export class Connect4Game {
     this.cols = BOARD_CONFIG.COLS;
     this.grid = [];
     this.currentPlayer = 1;
-    this.gameStyle = GAME_STYLES.FIRST_FOUR;
+    this.gameStyle = GAME_STYLES.FULL_BOARD;
     this.isOver = false;
     this.isLocked = false;
     this.totalMoves = 0;

@@ -511,8 +511,27 @@ body.in-game .center {
   transition: transform 0.25s cubic-bezier(0.16, 1.5, 0.3, 1);
 }
 
-.score-pill.bump {
+.score-pill.bump,
+.fours-pill.bump {
   transform: scale(1.28);
+}
+
+.fours-pill {
+  font-family: var(--font-ui);
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  height: 26px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--navy);
+  color: var(--gold);
+  border: 2px solid var(--navy);
+  white-space: nowrap;
+  transition: transform 0.25s cubic-bezier(0.16, 1.5, 0.3, 1);
 }
 
 /* ==========================================================================
