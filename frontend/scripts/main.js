@@ -654,6 +654,10 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    if (treeViewer.isOpen()) {
+      return;
+    }
+
     if (e.key === 'r' || e.key === 'R') {
       resetMatch();
       return;
