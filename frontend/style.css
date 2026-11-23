@@ -534,6 +534,10 @@ body.in-game .center {
   transition: transform 0.25s cubic-bezier(0.16, 1.5, 0.3, 1);
 }
 
+.fours-pill.hidden {
+  display: none;
+}
+
 /* ==========================================================================
    Center Arena & Interactive Connect 4 Board
    ========================================================================== */
@@ -2337,6 +2341,7 @@ body.lite .panel.winner .sprite-container::before {
   .player-tag { display: none; }
   .name { font-size: 12px; }
   .score-pill { font-size: 11px; min-width: 22px; height: 20px; padding: 0 5px; }
+  .fours-pill { font-size: 10px; height: 20px; padding: 0 5px; }
   .center,
   body.in-game .center {
     transform: scale(0.68);

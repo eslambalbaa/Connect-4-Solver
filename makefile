@@ -1,5 +1,5 @@
 CXX      := g++
-CXXFLAGS := -std=c++20 -O3 -march=native -flto -Wall -Wextra -Ibackend -include format
+CXXFLAGS := -std=c++20 -O3 -march=native -flto -flto-partition=one -Wall -Wextra -Ibackend -include format
 
 BACKEND_DIR := backend
 SRCS        := $(wildcard $(BACKEND_DIR)/*.cpp)
