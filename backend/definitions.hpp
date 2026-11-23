@@ -207,7 +207,7 @@ struct search_result
 };
 
 // set for -1 if we need unlimited depth
-constexpr int MAX_RECORD_DEPTH = 4;
+constexpr int MAX_RECORD_DEPTH = -1;
 
 inline int effective_record_depth(int k)
 {
