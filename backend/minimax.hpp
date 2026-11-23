@@ -33,15 +33,19 @@ class minimax
         if (level == k or curr.is_terminal())
         {
             node.value = curr.utility(max_player, level);
+            node.is_leaf = true;
             return {node.value, curr};
         }
 
         int value = -INF;
         state best_move;
+        const bool record_children = should_record(level, k);
+        node.truncated = !record_children;
 
-        if (should_record(level))
+        if (record_children)
             node.children.reserve(COLS);
 
+        int eval_order = 0;
         for (int col = 0; col < COLS; ++col)
         {
             if (!CAN_PLAY(curr.mask, col))
@@ -52,11 +56,12 @@ class minimax
             tree_node child_node;
             child_node.col = col;
             child_node.level = level + 1;
+            child_node.order = ++eval_order;
             child_node.is_max = false;
 
             auto [value2, _] = min_value(child, level + 1, k, max_player, nodes_expanded, child_node);
 
-            if (should_record(level))
+            if (record_children)
                 node.children.push_back(std::move(child_node));
 
             if (value2 > value)
@@ -80,15 +85,19 @@ class minimax
         if (level == k or curr.is_terminal())
         {
             node.value = curr.utility(max_player, level);
+            node.is_leaf = true;
             return {node.value, curr};
         }
 
         int value = INF;
         state best_move;
+        const bool record_children = should_record(level, k);
+        node.truncated = !record_children;
 
-        if (should_record(level))
+        if (record_children)
             node.children.reserve(COLS);
 
+        int eval_order = 0;
         for (int col = 0; col < COLS; ++col)
         {
             if (!CAN_PLAY(curr.mask, col))
@@ -99,11 +108,12 @@ class minimax
             tree_node child_node;
             child_node.col = col;
             child_node.level = level + 1;
+            child_node.order = ++eval_order;
             child_node.is_max = true;
 
             auto [value2, _] = max_value(child, level + 1, k, max_player, nodes_expanded, child_node);
 
-            if (should_record(level))
+            if (record_children)
                 node.children.push_back(std::move(child_node));
 
             if (value2 < value)

@@ -13,6 +13,14 @@ function formatValue(val) {
   return n > 0 ? `+${n}` : `${n}`;
 }
 
+function formatBound(val) {
+  if (val === null || val === undefined || Number.isNaN(Number(val))) return '--';
+  const n = Math.trunc(Number(val));
+  if (n <= -2000000000) return '-∞';
+  if (n >= 2000000000) return '+∞';
+  return n > 0 ? `+${n}` : `${n}`;
+}
+
 function findMoveColFromBoards(prevBoard, nextBoard, player) {
   if (!Array.isArray(prevBoard) || !Array.isArray(nextBoard)) return -1;
   for (let r = 0; r < prevBoard.length; r++) {
@@ -102,8 +110,13 @@ function extractVisualLevels(tree, chosenCol, pathCols) {
         col: Number(tree.col ?? -1),
         level: Number(tree.level ?? 0),
         value: tree.value,
+        alpha: tree.alpha,
+        beta: tree.beta,
+        order: Number(tree.order ?? 0),
         isMax: Boolean(tree.is_max),
         pruned: Boolean(tree.pruned),
+        isLeaf: Boolean(tree.is_leaf),
+        truncated: Boolean(tree.truncated),
         childCount: Array.isArray(tree.children) ? tree.children.length : 0,
         isPathActive: true,
         isBestChoice: true
@@ -133,8 +146,13 @@ function extractVisualLevels(tree, chosenCol, pathCols) {
         col: c,
         level: Number(ch.level ?? d + 1),
         value: ch.value,
+        alpha: ch.alpha,
+        beta: ch.beta,
+        order: Number(ch.order ?? 0),
         isMax: Boolean(ch.is_max),
         pruned: Boolean(ch.pruned),
+        isLeaf: Boolean(ch.is_leaf),
+        truncated: Boolean(ch.truncated),
         childCount: Array.isArray(ch.children) ? ch.children.length : 0,
         isPathActive,
         isBestChoice: d === 0 && c === chosenCol
@@ -161,34 +179,74 @@ function buildTextTree(tree, meta, maxDepth) {
   if (!tree || !meta) {
     return 'Make a move against the computer to generate the Minimax tree.';
   }
-  const { chosenCol, algorithm, maxLevels, nodesExpanded, timeMs, rootValue } = meta;
-  const algoName = algorithm === 1 ? 'MINIMAX + ALPHA-BETA' : 'MINIMAX';
+  const { chosenCol, algorithm, gameStyle, maxLevels, nodesExpanded, timeMs, rootValue } = meta;
+  const isAlphaBeta = algorithm === 1;
+  const algoName = isAlphaBeta ? 'MINIMAX + ALPHA-BETA' : 'MINIMAX';
+  const styleName = gameStyle === 0 ? 'FULL BOARD' : 'FIRST FOUR';
 
   const lines = [];
   lines.push(
-    `${algoName} | K = ${maxLevels} | CHOSEN COL = ${chosenCol + 1} | VALUE = ${formatValue(rootValue)} | NODES = ${nodesExpanded} | TIME = ${timeMs.toFixed(3)} ms`
+    `${algoName} | MODE = ${styleName} | K = ${maxLevels} | CHOSEN COL = ${chosenCol + 1} | VALUE = ${formatValue(rootValue)} | NODES = ${nodesExpanded} | TIME = ${timeMs.toFixed(3)} ms`
   );
-  lines.push('-------------------------------------------------------------------------');
+
+  if (Array.isArray(tree.children) && tree.children.length > 0) {
+    const colSummary = [...tree.children]
+      .sort((a, b) => Number(a.col) - Number(b.col))
+      .map((ch) => {
+        const c = Number(ch.col) + 1;
+        if (ch.pruned) return `Col ${c}: PRUNED`;
+        const mark = Number(ch.col) === chosenCol ? '*' : '';
+        return `Col ${c}${mark}: ${formatValue(ch.value)}`;
+      })
+      .join(' | ');
+    lines.push(`LEVEL 1 BOARD VALUES: ${colSummary}`);
+  }
+  lines.push('----------------------------------------------------------------------------------------');
 
   const walk = (node, prefix, isLast, isRoot) => {
     const role = node.is_max ? 'MAX' : 'MIN';
     const lvl = Number(node.level ?? 0);
+    const order = Number(node.order ?? 0);
+    const orderPrefix = order > 0 ? `[#${order}] ` : '';
+
     if (isRoot) {
-      lines.push(`[L${lvl} ${role} ROOT] value = ${formatValue(node.value)}`);
+      const abText = isAlphaBeta ? ` | α=${formatBound(node.alpha)}, β=${formatBound(node.beta)}` : '';
+      lines.push(`[L${lvl} ${role} ROOT] value = ${formatValue(node.value)}${abText}`);
     } else {
       const branch = isLast ? '`-- ' : '|-- ';
       const colText = `Col ${Number(node.col) + 1}`;
-      const prunedText = node.pruned ? ' [PRUNED]' : '';
+      if (node.pruned) {
+        const cutoffText = isAlphaBeta
+          ? ` [PRUNED: α=${formatBound(node.alpha)} ≥ β=${formatBound(node.beta)}]`
+          : ' [PRUNED]';
+        lines.push(`${prefix}${branch}${orderPrefix}[L${lvl} ${role}] ${colText} |${cutoffText}`);
+        return;
+      }
+
+      const abText = isAlphaBeta ? ` | α=${formatBound(node.alpha)}, β=${formatBound(node.beta)}` : '';
+      const leafText = node.is_leaf ? ' [HEURISTIC]' : '';
       const chosenText = lvl === 1 && Number(node.col) === chosenCol ? ' [CHOSEN]' : '';
-      lines.push(`${prefix}${branch}[L${lvl} ${role}] ${colText} | value = ${formatValue(node.value)}${prunedText}${chosenText}`);
+      lines.push(
+        `${prefix}${branch}${orderPrefix}[L${lvl} ${role}] ${colText} | value = ${formatValue(node.value)}${abText}${leafText}${chosenText}`
+      );
     }
 
-    const children = Array.isArray(node.children) ? node.children : [];
-    if (children.length === 0) return;
+    const rawChildren = Array.isArray(node.children) ? node.children : [];
+    const children = isAlphaBeta
+      ? [...rawChildren].sort((a, b) => (Number(a.order) || 999) - (Number(b.order) || 999))
+      : rawChildren;
 
     const nextPrefix = prefix + (isRoot ? '' : isLast ? '    ' : '|   ');
+
+    if (children.length === 0) {
+      if (node.truncated) {
+        lines.push(`${nextPrefix}\`-- (truncated at L${lvl}; search evaluated down to L${maxLevels})`);
+      }
+      return;
+    }
+
     if (lvl >= maxDepth) {
-      lines.push(`${nextPrefix}\`-- (${children.length} child nodes up to L${maxLevels})`);
+      lines.push(`${nextPrefix}\`-- (${children.length} branches evaluated down to L${maxLevels})`);
       return;
     }
 
@@ -223,7 +281,7 @@ function finalizeTreeData(requestId, fullData, payload) {
   currentTree = tree;
   currentMeta = meta;
   currentSelectedPath = computeDefaultPath(tree, chosenCol, payload.max_levels);
-  cachedTextTrace3 = buildTextTree(tree, meta, 3);
+  cachedTextTrace3 = null;
   cachedTextTrace4 = null;
 
   const level1Children = extractLevel1Children(tree);
@@ -236,8 +294,7 @@ function finalizeTreeData(requestId, fullData, payload) {
     meta,
     level1Children,
     selectedPathCols: currentSelectedPath,
-    visualLevels,
-    textTrace3: cachedTextTrace3
+    visualLevels
   });
 }
 
@@ -436,7 +493,8 @@ self.addEventListener('message', (event) => {
   } else if (msg.type === 'getTextTrace') {
     if (!currentTree || !currentMeta || msg.moveId !== currentMoveId) return;
     if (!cachedTextTrace4) {
-      cachedTextTrace4 = buildTextTree(currentTree, currentMeta, 4);
+      const traceDepth = currentMeta.maxLevels <= 5 ? currentMeta.maxLevels : (msg.maxDepth || 4);
+      cachedTextTrace4 = buildTextTree(currentTree, currentMeta, traceDepth);
     }
     self.postMessage({
       type: 'textTrace',

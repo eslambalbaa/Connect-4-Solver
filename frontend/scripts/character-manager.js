@@ -4,7 +4,7 @@
  * framing, theme synchronization, animation states, and victory/defeat/draw sequences.
  */
 
-import { REACTION_TIMING } from './constants.js?v=49';
+import { REACTION_TIMING } from './constants.js?v=55';
 import {
   DEFAULT_MATCHUP,
   getCameraOrbitForSlot,

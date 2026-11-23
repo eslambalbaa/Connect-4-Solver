@@ -47,7 +47,7 @@ export const AI_CONFIG = Object.freeze({
     MINIMAX: 0,
     ALPHA_BETA: 1
   }),
-  DEFAULT_ALGORITHM: 0,
+  DEFAULT_ALGORITHM: 1,
   CPU_PLAYER: 2,
   MAX_LEVELS: 6
 });

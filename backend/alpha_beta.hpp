@@ -32,19 +32,25 @@ class alpha_beta
         ++nodes_expanded;
         node.level = level;
         node.is_max = true;
+        node.alpha = alpha;
+        node.beta = beta;
 
         if (level == k or curr.is_terminal())
         {
             node.value = curr.utility(max_player, level);
+            node.is_leaf = true;
             return {node.value, curr};
         }
 
         int value = -INF;
         state best_move;
+        const bool record_children = should_record(level, k);
+        node.truncated = !record_children;
 
-        if (should_record(level))
+        if (record_children)
             node.children.reserve(COLS);
 
+        int eval_order = 0;
         for (int i = 0; i < COLS; ++i)
         {
             int col = COL_ORDER[i];
@@ -56,11 +62,12 @@ class alpha_beta
             tree_node child_node;
             child_node.col = col;
             child_node.level = level + 1;
+            child_node.order = ++eval_order;
             child_node.is_max = false;
 
             auto [value2, _] = min_value(child, alpha, beta, level + 1, k, max_player, nodes_expanded, child_node);
 
-            if (should_record(level))
+            if (record_children)
                 node.children.push_back(std::move(child_node));
 
             if (value2 > value)
@@ -72,7 +79,7 @@ class alpha_beta
 
             if (value >= beta)
             {
-                if (should_record(level))
+                if (record_children)
                 {
                     for (int j = i + 1; j < COLS; ++j)
                     {
@@ -83,6 +90,9 @@ class alpha_beta
                         tree_node pruned_node;
                         pruned_node.col = col_j;
                         pruned_node.level = level + 1;
+                        pruned_node.order = ++eval_order;
+                        pruned_node.alpha = alpha;
+                        pruned_node.beta = beta;
                         pruned_node.is_max = false;
                         pruned_node.pruned = true;
                         node.children.push_back(std::move(pruned_node));
@@ -91,14 +101,18 @@ class alpha_beta
                 }
 
                 node.value = value;
+                node.alpha = alpha;
+                node.beta = beta;
                 return {value, best_move};
             }
         }
 
-        if (should_record(level))
+        if (record_children)
             std::ranges::sort(node.children, {}, &tree_node::col);
 
         node.value = value;
+        node.alpha = alpha;
+        node.beta = beta;
         return {value, best_move};
     }
 
@@ -108,19 +122,25 @@ class alpha_beta
         ++nodes_expanded;
         node.level = level;
         node.is_max = false;
+        node.alpha = alpha;
+        node.beta = beta;
 
         if (level == k or curr.is_terminal())
         {
             node.value = curr.utility(max_player, level);
+            node.is_leaf = true;
             return {node.value, curr};
         }
 
         int value = INF;
         state best_move;
+        const bool record_children = should_record(level, k);
+        node.truncated = !record_children;
 
-        if (should_record(level))
+        if (record_children)
             node.children.reserve(COLS);
 
+        int eval_order = 0;
         for (int i = 0; i < COLS; ++i)
         {
             int col = COL_ORDER[i];
@@ -132,11 +152,12 @@ class alpha_beta
             tree_node child_node;
             child_node.col = col;
             child_node.level = level + 1;
+            child_node.order = ++eval_order;
             child_node.is_max = true;
 
             auto [value2, _] = max_value(child, alpha, beta, level + 1, k, max_player, nodes_expanded, child_node);
 
-            if (should_record(level))
+            if (record_children)
                 node.children.push_back(std::move(child_node));
 
             if (value2 < value)
@@ -148,7 +169,7 @@ class alpha_beta
 
             if (value <= alpha)
             {
-                if (should_record(level))
+                if (record_children)
                 {
                     for (int j = i + 1; j < COLS; ++j)
                     {
@@ -159,6 +180,9 @@ class alpha_beta
                         tree_node pruned_node;
                         pruned_node.col = col_j;
                         pruned_node.level = level + 1;
+                        pruned_node.order = ++eval_order;
+                        pruned_node.alpha = alpha;
+                        pruned_node.beta = beta;
                         pruned_node.is_max = true;
                         pruned_node.pruned = true;
                         node.children.push_back(std::move(pruned_node));
@@ -167,14 +191,18 @@ class alpha_beta
                 }
 
                 node.value = value;
+                node.alpha = alpha;
+                node.beta = beta;
                 return {value, best_move};
             }
         }
 
-        if (should_record(level))
+        if (record_children)
             std::ranges::sort(node.children, {}, &tree_node::col);
 
         node.value = value;
+        node.alpha = alpha;
+        node.beta = beta;
         return {value, best_move};
     }
 };

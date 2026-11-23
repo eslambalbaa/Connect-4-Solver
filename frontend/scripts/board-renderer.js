@@ -4,7 +4,7 @@
  * target landing ring preview, board impact recoil, and visual status updates.
  */
 
-import { BOARD_CONFIG, REACTION_TIMING } from './constants.js?v=49';
+import { BOARD_CONFIG, REACTION_TIMING } from './constants.js?v=55';
 
 export class BoardRenderer {
   /**
