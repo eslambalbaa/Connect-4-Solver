@@ -16,20 +16,38 @@ constexpr int FOUR_POINT_WEIGHT = 10000;
 constexpr int DOUBLE_THREAT_BONUS = 5000;
 constexpr int FULL_BOARD_DOUBLE_THREAT_BONUS = 500;
 
-constexpr int IMMEDIATE_MIN_THREAT = 65;
-constexpr int IMMEDIATE_MAX_THREAT = 50;
+constexpr int FIRST_FOUR_IMM_WIN_BONUS = 4000;
+constexpr int FIRST_FOUR_FORK_BONUS = 2500;
+
+constexpr int FULL_BOARD_TURN_IMM_BONUS = 350;
+constexpr int FULL_BOARD_PLAYABLE_MULTI_BONUS = 250;
+constexpr int FULL_BOARD_FORK_BONUS = 450;
+constexpr int MULTI_LINE_THREAT_BONUS = 45;
+constexpr int CONTESTED_THREAT_BONUS = 20;
+
+constexpr int IMMEDIATE_THREAT_WEIGHT = 55;
 constexpr int FUTURE_FAVORED_THREAT = 35;
 constexpr int FUTURE_UNFAVORED_THREAT = 15;
 
 constexpr int FULL_BOARD_FAVORED_THREAT = 27;
 constexpr int FULL_BOARD_UNFAVORED_THREAT = 23;
 
-constexpr int MIN_OPEN_TWO_HORIZ_DIAG = 5;
-constexpr int MAX_OPEN_TWO_HORIZ_DIAG = 4;
-constexpr int MIN_OPEN_TWO_VERT = 1;
-constexpr int MAX_OPEN_TWO_VERT = 1;
+constexpr int OPEN_TWO_HORIZ_DIAG = 5;
+constexpr int OPEN_TWO_VERT = 1;
 
 constexpr int POS_LINE_WEIGHT = 1;
+
+consteval uint64_t build_bottom_mask()
+{
+    uint64_t mask = 0;
+    for (int c = 0; c < COLS; ++c)
+    {
+        mask |= COL_BOTTOM(c);
+    }
+    return mask;
+}
+
+constexpr uint64_t BOTTOM_MASK = build_bottom_mask();
 
 consteval int count_winning_lines_through(int r, int c)
 {
@@ -153,7 +171,14 @@ COMPUTES int connected_fours_score(const state &curr, uint64_t max_pos, uint64_t
     return (COUNT_FOURS(max_pos) - COUNT_FOURS(min_pos)) * FOUR_POINT_WEIGHT;
 }
 
-COMPUTES uint64_t threat_cells_dir(uint64_t p, uint64_t empty, int d)
+struct ThreatInfo
+{
+    uint64_t mask = 0;
+    uint64_t multi_mask = 0;
+    int extra_lines = 0;
+};
+
+COMPUTES void accumulate_threats_dir(uint64_t p, uint64_t empty, int d, ThreatInfo &info)
 {
     const uint64_t p1 = p >> d;
     const uint64_t p2 = p >> (2 * d);
@@ -164,18 +189,29 @@ COMPUTES uint64_t threat_cells_dir(uint64_t p, uint64_t empty, int d)
     const uint64_t e2 = empty >> (2 * d);
     const uint64_t e3 = empty >> (3 * d);
 
-    const uint64_t slot0_empty = e0 & p1 & p2 & p3;
-    const uint64_t slot1_empty = (p & e1 & p2 & p3) << d;
-    const uint64_t slot2_empty = (p & p1 & e2 & p3) << (2 * d);
-    const uint64_t slot3_empty = (p & p1 & p2 & e3) << (3 * d);
+    const uint64_t s0 = e0 & p1 & p2 & p3;
+    const uint64_t s1 = (p & e1 & p2 & p3) << d;
+    const uint64_t s2 = (p & p1 & e2 & p3) << (2 * d);
+    const uint64_t s3 = (p & p1 & p2 & e3) << (3 * d);
 
-    return slot0_empty | slot1_empty | slot2_empty | slot3_empty;
+    const std::array<uint64_t, 4> slots = {s0, s1, s2, s3};
+    for (uint64_t s : slots)
+    {
+        info.multi_mask |= (info.mask & s);
+        info.mask |= s;
+        info.extra_lines += POPCOUNT(s);
+    }
 }
 
-COMPUTES uint64_t all_threat_cells(uint64_t p, uint64_t empty)
+COMPUTES ThreatInfo analyze_threats(uint64_t p, uint64_t empty)
 {
-    return threat_cells_dir(p, empty, DIR_HORIZ) | threat_cells_dir(p, empty, DIR_VERT) |
-           threat_cells_dir(p, empty, DIR_DIAG_UP) | threat_cells_dir(p, empty, DIR_DIAG_DOWN);
+    ThreatInfo info{};
+    accumulate_threats_dir(p, empty, DIR_HORIZ, info);
+    accumulate_threats_dir(p, empty, DIR_VERT, info);
+    accumulate_threats_dir(p, empty, DIR_DIAG_UP, info);
+    accumulate_threats_dir(p, empty, DIR_DIAG_DOWN, info);
+    info.extra_lines -= POPCOUNT(info.mask);
+    return info;
 }
 
 COMPUTES int count_twos_dir(uint64_t p, uint64_t empty, int d)
@@ -197,11 +233,71 @@ COMPUTES int twos_score(uint64_t max_pos, uint64_t min_pos, uint64_t empty)
                              count_twos_dir(min_pos, empty, DIR_DIAG_DOWN);
     const int min_vert = count_twos_dir(min_pos, empty, DIR_VERT);
 
-    return (max_non_vert * MAX_OPEN_TWO_HORIZ_DIAG + max_vert * MAX_OPEN_TWO_VERT) -
-           (min_non_vert * MIN_OPEN_TWO_HORIZ_DIAG + min_vert * MIN_OPEN_TWO_VERT);
+    return (max_non_vert - min_non_vert) * OPEN_TWO_HORIZ_DIAG + (max_vert - min_vert) * OPEN_TWO_VERT;
 }
+
+COMPUTES int score_turn_tactics(uint64_t playable, const ThreatInfo &max_t, const ThreatInfo &min_t, bool max_to_move,
+                                GameStyle game_style)
+{
+    const uint64_t max_imm = max_t.mask & playable;
+    const uint64_t min_imm = min_t.mask & playable;
+    const int max_imm_cnt = POPCOUNT(max_imm);
+    const int min_imm_cnt = POPCOUNT(min_imm);
+
+    int score = 0;
+
+    if (game_style == GameStyle::first_four)
+    {
+        if (max_to_move)
+        {
+            if (max_imm_cnt >= 1)
+                return FIRST_FOUR_IMM_WIN_BONUS;
+            if (min_imm_cnt >= 2)
+                return -FIRST_FOUR_FORK_BONUS;
+        }
+        else
+        {
+            if (min_imm_cnt >= 1)
+                return -FIRST_FOUR_IMM_WIN_BONUS;
+            if (max_imm_cnt >= 2)
+                return FIRST_FOUR_FORK_BONUS;
+        }
+        return 0;
+    }
+
+    if (max_to_move)
+    {
+        if (max_imm_cnt >= 1)
+        {
+            score += FULL_BOARD_TURN_IMM_BONUS;
+            if ((max_imm & max_t.multi_mask) != 0)
+                score += FULL_BOARD_PLAYABLE_MULTI_BONUS;
+            if (max_imm_cnt >= 2)
+                score += FULL_BOARD_FORK_BONUS;
+        }
+        if (min_imm_cnt >= 2)
+            score -= FULL_BOARD_FORK_BONUS;
+    }
+    else
+    {
+        if (min_imm_cnt >= 1)
+        {
+            score -= FULL_BOARD_TURN_IMM_BONUS;
+            if ((min_imm & min_t.multi_mask) != 0)
+                score -= FULL_BOARD_PLAYABLE_MULTI_BONUS;
+            if (min_imm_cnt >= 2)
+                score -= FULL_BOARD_FORK_BONUS;
+        }
+        if (max_imm_cnt >= 2)
+            score += FULL_BOARD_FORK_BONUS;
+    }
+
+    score += (max_t.extra_lines - min_t.extra_lines) * MULTI_LINE_THREAT_BONUS;
+    return score;
+}
+
 COMPUTES int score_threats(uint64_t mask, uint64_t max_threats, uint64_t min_threats, bool max_is_red,
-                           GameStyle game_style)
+                           bool max_to_move, GameStyle game_style)
 {
     const bool is_full = (game_style == GameStyle::full_board);
     const int favored_w = is_full ? FULL_BOARD_FAVORED_THREAT : FUTURE_FAVORED_THREAT;
@@ -225,36 +321,55 @@ COMPUTES int score_threats(uint64_t mask, uint64_t max_threats, uint64_t min_thr
         bool max_blocked_from_below = false;
         bool min_blocked_from_below = false;
 
-        for (int bit = 0; bit < ROWS; ++bit)
+        for (int bit = height; bit < ROWS; ++bit)
         {
             const bool is_max_t = (max_col & ROW_BIT(bit)) != 0;
             const bool is_min_t = (min_col & ROW_BIT(bit)) != 0;
 
+            if (!is_max_t and !is_min_t)
+                continue;
+
             // red rows take even values advantage
             const bool is_red_row = ((bit & 1) == 0);
+            const bool max_active = is_max_t and (is_full or !max_blocked_from_below);
+            const bool min_active = is_min_t and (is_full or !min_blocked_from_below);
 
-            if (is_max_t and !max_blocked_from_below)
+            if (max_active)
             {
                 if (bit < ROWS - 1 and ((max_col & ROW_BIT(bit + 1)) != 0))
                     score += double_threat_w;
 
                 if (bit == height)
-                    score += IMMEDIATE_MAX_THREAT;
+                    score += IMMEDIATE_THREAT_WEIGHT;
                 else
                     score += (is_red_row == max_is_red) ? favored_w : unfavored_w;
-                min_blocked_from_below = true;
             }
 
-            if (is_min_t and !min_blocked_from_below)
+            if (min_active)
             {
                 if (bit < ROWS - 1 and ((min_col & ROW_BIT(bit + 1)) != 0))
                     score -= double_threat_w;
 
                 if (bit == height)
-                    score -= IMMEDIATE_MIN_THREAT;
+                    score -= IMMEDIATE_THREAT_WEIGHT;
                 else
                     score -= (is_red_row != max_is_red) ? favored_w : unfavored_w;
-                max_blocked_from_below = true;
+            }
+
+            if (is_full and max_active and min_active)
+            {
+                if (bit == height)
+                    score += max_to_move ? CONTESTED_THREAT_BONUS : -CONTESTED_THREAT_BONUS;
+                else
+                    score += (is_red_row == max_is_red) ? CONTESTED_THREAT_BONUS : -CONTESTED_THREAT_BONUS;
+            }
+
+            if (!is_full)
+            {
+                if (max_active)
+                    min_blocked_from_below = true;
+                if (min_active)
+                    max_blocked_from_below = true;
             }
         }
     }
@@ -273,13 +388,18 @@ COMPUTES static int evaluate(const state &curr, Cell max_player, int level)
     }
 
     const uint64_t empty = EMPTY_CELLS(curr.mask);
-    const uint64_t max_threats = all_threat_cells(max_pos, empty);
-    const uint64_t min_threats = all_threat_cells(min_pos, empty);
+    const uint64_t playable = ((curr.mask + BOTTOM_MASK) & FULL_BOARD_MASK) & empty;
+    const bool max_to_move = (curr.own_color == max_player);
+
+    const ThreatInfo max_threats = analyze_threats(max_pos, empty);
+    const ThreatInfo min_threats = analyze_threats(min_pos, empty);
 
     int score = 0;
     score += connected_fours_score(curr, max_pos, min_pos);
+    score += score_turn_tactics(playable, max_threats, min_threats, max_to_move, curr.game_style);
     score += twos_score(max_pos, min_pos, empty);
-    score += score_threats(curr.mask, max_threats, min_threats, max_player == Cell::red, curr.game_style);
+    score +=
+        score_threats(curr.mask, max_threats.mask, min_threats.mask, max_player == Cell::red, max_to_move, curr.game_style);
     score += positional_score(max_pos, min_pos);
 
     return score;
