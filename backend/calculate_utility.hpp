@@ -296,8 +296,8 @@ COMPUTES int score_turn_tactics(uint64_t playable, const ThreatInfo &max_t, cons
     return score;
 }
 
-COMPUTES int score_threats(uint64_t mask, uint64_t max_threats, uint64_t min_threats, bool max_is_red,
-                           bool max_to_move, GameStyle game_style)
+COMPUTES int score_threats(uint64_t mask, uint64_t max_threats, uint64_t min_threats, bool max_is_red, bool max_to_move,
+                           GameStyle game_style)
 {
     const bool is_full = (game_style == GameStyle::full_board);
     const int favored_w = is_full ? FULL_BOARD_FAVORED_THREAT : FUTURE_FAVORED_THREAT;
@@ -398,8 +398,8 @@ COMPUTES static int evaluate(const state &curr, Cell max_player, int level)
     score += connected_fours_score(curr, max_pos, min_pos);
     score += score_turn_tactics(playable, max_threats, min_threats, max_to_move, curr.game_style);
     score += twos_score(max_pos, min_pos, empty);
-    score +=
-        score_threats(curr.mask, max_threats.mask, min_threats.mask, max_player == Cell::red, max_to_move, curr.game_style);
+    score += score_threats(curr.mask, max_threats.mask, min_threats.mask, max_player == Cell::red, max_to_move,
+                           curr.game_style);
     score += positional_score(max_pos, min_pos);
 
     return score;
