@@ -130,7 +130,7 @@ export class MenuManager {
     if (!Number.isFinite(parsed) || parsed < 1) {
       return 1;
     }
-    return Math.min(9, parsed);
+    return parsed;
   }
 
   commitDepthInput() {
@@ -144,7 +144,7 @@ export class MenuManager {
 
   adjustDepth(delta) {
     const base = this.normalizeMaxLevels(this.inputMaxLevels?.value ?? this.selectedMaxLevels);
-    const next = Math.max(1, Math.min(9, base + delta));
+    const next = Math.max(1, base + delta);
     this.selectedMaxLevels = next;
     if (this.inputMaxLevels) {
       this.inputMaxLevels.value = String(next);

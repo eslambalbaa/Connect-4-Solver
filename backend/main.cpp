@@ -1,6 +1,7 @@
 #include "alpha_beta.hpp"
 #include "definitions.hpp"
 #include "minimax.hpp"
+#include <algorithm>
 #include <charconv>
 #include <chrono>
 #include <cstddef>
@@ -53,7 +54,7 @@ int get_max_levels()
     int max_levels = default_max_levels;
     if (std::cin >> max_levels)
     {
-        return std::clamp(max_levels, 1, 9);
+        return std::max(1, max_levels);
     }
 
     return default_max_levels;
