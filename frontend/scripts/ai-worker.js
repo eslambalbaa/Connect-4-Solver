@@ -298,6 +298,75 @@ function finalizeTreeData(requestId, fullData, payload) {
   });
 }
 
+let solverWorker = null;
+const pendingWasmRequests = new Map();
+
+function getSolverWorker() {
+  if (!solverWorker) {
+    solverWorker = new Worker('./solver.worker.js', { type: 'module' });
+    solverWorker.addEventListener('message', (event) => {
+      const { requestId, data, error } = event.data || {};
+      const pending = pendingWasmRequests.get(requestId);
+      if (!pending) return;
+      pendingWasmRequests.delete(requestId);
+      if (error) {
+        pending.reject(new Error(error));
+      } else {
+        pending.resolve(data);
+      }
+    });
+    solverWorker.addEventListener('error', (err) => {
+      const failure = new Error(err?.message || 'Wasm solver worker failed');
+      for (const pending of pendingWasmRequests.values()) {
+        pending.reject(failure);
+      }
+      pendingWasmRequests.clear();
+      solverWorker = null;
+    });
+  }
+  return solverWorker;
+}
+
+function solveViaWasmWorker(requestId, payload, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      const abortErr = new Error('Aborted');
+      abortErr.name = 'AbortError';
+      reject(abortErr);
+      return;
+    }
+
+    const worker = getSolverWorker();
+    const onAbort = () => {
+      pendingWasmRequests.delete(requestId);
+      if (solverWorker) {
+        solverWorker.terminate();
+        solverWorker = null;
+      }
+      const abortErr = new Error('Aborted');
+      abortErr.name = 'AbortError';
+      reject(abortErr);
+    };
+
+    signal?.addEventListener('abort', onAbort, { once: true });
+    pendingWasmRequests.set(requestId, {
+      resolve: (data) => {
+        signal?.removeEventListener('abort', onAbort);
+        resolve(data);
+      },
+      reject: (err) => {
+        signal?.removeEventListener('abort', onAbort);
+        reject(err);
+      }
+    });
+
+    worker.postMessage({ requestId, payload });
+  });
+}
+
+// Pre-warm Wasm solver worker while menu is open
+getSolverWorker();
+
 async function handleSolve(requestId, payload) {
   if (activeAbortController) {
     activeAbortController.abort();
@@ -307,124 +376,25 @@ async function handleSolve(requestId, payload) {
   const signal = activeAbortController.signal;
 
   try {
-    const response = await fetch('/api/move', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal
+    const data = await solveViaWasmWorker(requestId, payload, signal);
+    if (requestId !== activeRequestId) return;
+
+    if (!data || data.error) {
+      self.postMessage({ type: 'error', requestId, phase: 'move', message: data?.error || 'Solver returned empty output' });
+      return;
+    }
+
+    self.postMessage({
+      type: 'moveReady',
+      requestId,
+      board: data.board,
+      isTerminal: Boolean(data.is_terminal),
+      nodesExpanded: Number(data.nodes_expanded ?? 0),
+      timeMs: Number(data.time_ms ?? 0),
+      rootValue: data.tree?.value ?? 0
     });
 
-    if (requestId !== activeRequestId) return;
-
-    if (!response.ok) {
-      let errMsg = `HTTP ${response.status}`;
-      try {
-        const errData = await response.json();
-        if (errData?.error) errMsg = errData.error;
-      } catch (_) {}
-      self.postMessage({ type: 'error', requestId, phase: 'move', message: errMsg });
-      return;
-    }
-
-    if (!response.body) {
-      const data = await response.json();
-      if (requestId !== activeRequestId) return;
-      if (data.error) {
-        self.postMessage({ type: 'error', requestId, phase: 'move', message: data.error });
-        return;
-      }
-      self.postMessage({
-        type: 'moveReady',
-        requestId,
-        board: data.board,
-        isTerminal: Boolean(data.is_terminal),
-        nodesExpanded: Number(data.nodes_expanded ?? 0),
-        timeMs: Number(data.time_ms ?? 0),
-        rootValue: data.tree?.value ?? 0
-      });
-      finalizeTreeData(requestId, data, payload);
-      return;
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    const parts = [];
-    let headerBuf = '';
-    let moveSent = false;
-
-    while (true) {
-      const { value, done } = await reader.read();
-      if (requestId !== activeRequestId) {
-        try {
-          await reader.cancel();
-        } catch (_) {}
-        return;
-      }
-
-      if (value) {
-        const chunkText = decoder.decode(value, { stream: !done });
-        parts.push(chunkText);
-
-        if (!moveSent) {
-          headerBuf += chunkText;
-          if (!done) {
-            const markerIdx = headerBuf.indexOf('"children":[');
-            if (markerIdx !== -1) {
-              try {
-                const prefix = JSON.parse(headerBuf.slice(0, markerIdx) + '"children":[]}}');
-                if (!prefix.error && prefix.board) {
-                  moveSent = true;
-                  headerBuf = '';
-                  self.postMessage({
-                    type: 'moveReady',
-                    requestId,
-                    board: prefix.board,
-                    isTerminal: Boolean(prefix.is_terminal),
-                    nodesExpanded: Number(prefix.nodes_expanded ?? 0),
-                    timeMs: Number(prefix.time_ms ?? 0),
-                    rootValue: prefix.tree?.value ?? 0
-                  });
-                }
-              } catch (_) {}
-            } else if (headerBuf.length > 8192) {
-              headerBuf = headerBuf.slice(-4096);
-            }
-          }
-        }
-      } else if (done) {
-        const tail = decoder.decode();
-        if (tail) parts.push(tail);
-      }
-
-      if (done) break;
-    }
-
-    if (requestId !== activeRequestId) return;
-
-    const fullText = parts.length === 1 ? parts[0] : parts.join('');
-    parts.length = 0;
-
-    const fullData = JSON.parse(fullText);
-    if (requestId !== activeRequestId) return;
-
-    if (fullData.error) {
-      self.postMessage({ type: 'error', requestId, phase: moveSent ? 'tree' : 'move', message: fullData.error });
-      return;
-    }
-
-    if (!moveSent) {
-      self.postMessage({
-        type: 'moveReady',
-        requestId,
-        board: fullData.board,
-        isTerminal: Boolean(fullData.is_terminal),
-        nodesExpanded: Number(fullData.nodes_expanded ?? 0),
-        timeMs: Number(fullData.time_ms ?? 0),
-        rootValue: fullData.tree?.value ?? 0
-      });
-    }
-
-    finalizeTreeData(requestId, fullData, payload);
+    finalizeTreeData(requestId, data, payload);
   } catch (err) {
     if (err.name === 'AbortError' || requestId !== activeRequestId) return;
     self.postMessage({ type: 'error', requestId, phase: 'move', message: err.message || 'Solver request failed' });

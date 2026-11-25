@@ -6,13 +6,11 @@
 #include <chrono>
 #include <cstddef>
 #include <format>
+#ifndef __EMSCRIPTEN__
 #include <iostream>
+#endif
 #include <string>
 #include <utility>
-
-#define FAST_IO_ON                                                                                                     \
-    std::ios::sync_with_stdio(false);                                                                                  \
-    std::cin.tie(nullptr);
 
 constexpr size_t BYTES_PER_TREE_NODE = 170;
 constexpr size_t BASE_PAYLOAD_BYTES = 512;
@@ -24,61 +22,6 @@ enum class Algorithm
     minimax,
     alpha_beta
 };
-
-Algorithm choose_algorithm()
-{
-    int choice;
-    std::cin >> choice;
-
-    return static_cast<Algorithm>(choice);
-}
-
-GameStyle get_game_style()
-{
-    int choice;
-    std::cin >> choice;
-
-    return static_cast<GameStyle>(choice);
-}
-
-Cell choose_color()
-{
-    int choice;
-    std::cin >> choice;
-
-    return static_cast<Cell>(choice);
-}
-
-int get_max_levels()
-{
-    int max_levels = default_max_levels;
-    if (std::cin >> max_levels)
-    {
-        return std::max(1, max_levels);
-    }
-
-    return default_max_levels;
-}
-
-bool input_state(state &out_state)
-{
-    std::array<std::array<Cell, COLS>, ROWS> board{};
-    for (int r = 0; r < ROWS; ++r)
-    {
-        for (int c = 0; c < COLS; ++c)
-        {
-            int cell_val;
-            if (!(std::cin >> cell_val))
-            {
-                return false;
-            }
-            board[r][c] = static_cast<Cell>(cell_val);
-        }
-    }
-
-    out_state.from_2d_board(board);
-    return true;
-}
 
 std::pair<search_result, double> use_algorithm(const state &current, Algorithm algorithm,
                                                int max_levels = default_max_levels)
@@ -151,11 +94,10 @@ void serialize_tree(const tree_node &node, std::string &out)
     out.append("]}", 2);
 }
 
-void emit_best_state(const search_result &best, double elapsed_ms)
+void append_best_state_json(const search_result &best, double elapsed_ms, std::string &out)
 {
-    std::string out;
     const size_t recorded_nodes = count_recorded_nodes(best.root);
-    out.reserve(recorded_nodes * BYTES_PER_TREE_NODE + BASE_PAYLOAD_BYTES);
+    out.reserve(out.size() + recorded_nodes * BYTES_PER_TREE_NODE + BASE_PAYLOAD_BYTES);
 
     out.append(R"({"board":[)", 10);
     for (int r = 0; r < ROWS; ++r)
@@ -176,7 +118,75 @@ void emit_best_state(const search_result &best, double elapsed_ms)
                        best.best_move.is_terminal(), best.nodes_expanded, elapsed_ms);
 
     serialize_tree(best.root, out);
-    out.append("}\n", 2);
+    out.push_back('}');
+}
+
+#ifndef __EMSCRIPTEN__
+
+#define FAST_IO_ON                                                                                                     \
+    std::ios::sync_with_stdio(false);                                                                                  \
+    std::cin.tie(nullptr);
+
+Algorithm choose_algorithm()
+{
+    int choice;
+    std::cin >> choice;
+
+    return static_cast<Algorithm>(choice);
+}
+
+GameStyle get_game_style()
+{
+    int choice;
+    std::cin >> choice;
+
+    return static_cast<GameStyle>(choice);
+}
+
+Cell choose_color()
+{
+    int choice;
+    std::cin >> choice;
+
+    return static_cast<Cell>(choice);
+}
+
+int get_max_levels()
+{
+    int max_levels = default_max_levels;
+    if (std::cin >> max_levels)
+    {
+        return std::max(1, max_levels);
+    }
+
+    return default_max_levels;
+}
+
+bool input_state(state &out_state)
+{
+    std::array<std::array<Cell, COLS>, ROWS> board{};
+    for (int r = 0; r < ROWS; ++r)
+    {
+        for (int c = 0; c < COLS; ++c)
+        {
+            int cell_val;
+            if (!(std::cin >> cell_val))
+            {
+                return false;
+            }
+            board[r][c] = static_cast<Cell>(cell_val);
+        }
+    }
+
+    out_state.from_2d_board(board);
+    return true;
+}
+
+void emit_best_state(const search_result &best, double elapsed_ms)
+{
+    std::string out;
+    append_best_state_json(best, elapsed_ms, out);
+    out.push_back('\n');
 
     std::cout.write(out.data(), out.size());
     std::cout.flush();
@@ -215,3 +225,5 @@ int main()
 
     launch_algorithm(choice, game_style, solver_color, max_levels);
 }
+
+#endif
